@@ -71,6 +71,7 @@ set( JIT_SOURCES
   smweights.cpp
   ssabuilder.cpp
   ssarenamestate.cpp
+  tarjanscc.cpp
   typeinfo.cpp
   unwind.cpp
   utils.cpp
