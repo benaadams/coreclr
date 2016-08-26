@@ -4304,7 +4304,8 @@ void GCInfo::gcMakeRegPtrTable(
                     continue;
                 }
 
-                int offset = varDsc->lvStkOffs + i * TARGET_POINTER_SIZE;
+                int offset = varDsc->lvStkOffs + i * sizeof(void*) + varDsc->lvGcLayoutOffset;
+
 #if DOUBLE_ALIGN
                 // For genDoubleAlign(), locals are addressed relative to ESP and
                 // arguments are addressed relative to EBP.

@@ -346,6 +346,10 @@ public:
     unsigned char lvFldOffset;
     unsigned char lvFldOrdinal;
 
+    int           lvGcLayoutOffset; // The offset of first field described by lvGcLayout bit-array. This is always zero for
+                                    // structs. However, to allocate an object on the stack we need also to allocate
+                                    // ObjHeader and VTablePtr which might have the size is not multiple of sizeof(LPVOID).
+
 #if FEATURE_MULTIREG_ARGS
     regNumber lvRegNumForSlot(unsigned slotNum)
     {
@@ -5896,6 +5900,7 @@ public:
 #define OMF_HAS_VTABLEREF 0x00000008  // Method contains method table reference.
 #define OMF_HAS_NULLCHECK 0x00000010  // Method contains null check.
 #define OMF_HAS_FATPOINTER 0x00000020 // Method contains call, that needs fat pointer transformation.
+#define OMF_HAS_OBJSTACKALLOC 0x00000040 // Method contains an object allocated on the stack.
 
     bool doesMethodHaveFatPointer()
     {
