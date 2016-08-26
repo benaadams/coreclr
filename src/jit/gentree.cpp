@@ -494,7 +494,6 @@ void GenTree::ReplaceWith(GenTree* src, Compiler* comp)
  */
 
 #if NODEBASH_STATS
-
 #define BASH_HASH_SIZE 211
 
 inline unsigned hashme(genTreeOps op1, genTreeOps op2)
@@ -634,8 +633,6 @@ void GenTree::DumpNodeSizes(FILE* fp)
             fprintf(fp, "\n");
         }
     }
-
-#endif
 }
 
 #endif // MEASURE_NODE_SIZE
