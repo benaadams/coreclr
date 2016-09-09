@@ -4314,6 +4314,12 @@ void GCInfo::gcMakeRegPtrTable(
                     offset += compiler->codeGen->genTotalFrameSize();
 #endif
                 GcSlotFlags flags = GC_SLOT_UNTRACKED;
+                
+                if ((compiler->optMethodFlags & OMF_HAS_OBJSTACKALLOC) != 0)
+                {
+                    flags = (GcSlotFlags)(flags | GC_SLOT_INTERIOR);
+                }
+
                 if (gcPtrs[i] == TYPE_GC_BYREF)
                 {
                     flags = (GcSlotFlags)(flags | GC_SLOT_INTERIOR);
@@ -4739,6 +4745,11 @@ void GCInfo::gcInfoRecordGCRegStateChange(GcInfoEncoder* gcInfoEncoder,
             regFlags = (GcSlotFlags)(regFlags | GC_SLOT_INTERIOR);
         }
 
+        if ((compiler->optMethodFlags & OMF_HAS_OBJSTACKALLOC) != 0)
+        {
+            regFlags = (GcSlotFlags)(regFlags | GC_SLOT_INTERIOR);
+        }
+
         RegSlotIdKey rskey(regNum, regFlags);
         GcSlotId     regSlotId;
         if (mode == MAKE_REG_PTR_MODE_ASSIGN_SLOTS)
@@ -4824,6 +4835,10 @@ void GCInfo::gcMakeVarPtrTable(GcInfoEncoder* gcInfoEncoder, MakeRegPtrMode mode
         }
 
         GcSlotFlags flags = GC_SLOT_BASE;
+        if ((compiler->optMethodFlags & OMF_HAS_OBJSTACKALLOC) != 0)
+        {
+            flags = (GcSlotFlags)(flags | GC_SLOT_INTERIOR);
+        }
         if ((lowBits & byref_OFFSET_FLAG) != 0)
         {
             flags = (GcSlotFlags)(flags | GC_SLOT_INTERIOR);

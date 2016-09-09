@@ -28,6 +28,18 @@ public:
 DWORD getMethodAttribs(CORINFO_METHOD_HANDLE ftn /* IN */
                        );
 
+// return the number of bytes needed by an instance of the class allocated on the heap
+unsigned getHeapClassSize(
+    CORINFO_CLASS_HANDLE        cls
+);
+
+BOOL classHasFinalizer(
+    CORINFO_CLASS_HANDLE cls
+);
+
+unsigned getObjHeaderSize(
+);
+
 // sets private JIT flags, which can be, retrieved using getAttrib.
 void setMethodAttribs(CORINFO_METHOD_HANDLE     ftn,    /* IN */
                       CorInfoMethodRuntimeFlags attribs /* IN */
