@@ -137,7 +137,6 @@ namespace System.Text
             return EncodingForwarder.GetByteCount(this, chars, count);
         }
 
-#if !BIGENDIAN
         public override byte[] GetBytes(String s)
             => EncodingForwarder.GetBytesAsciiFastPath(this, s);
 
@@ -171,20 +170,6 @@ namespace System.Text
 
         internal override unsafe int GetBytes(char* chars, int charCount, byte* bytes, int byteCount, EncoderNLS encoder)
             => EncodingForwarder.GetBytesAsciiFastPath(this, chars, charCount, bytes, byteCount, encoder);
-#else
-        public override int GetBytes(String chars, int charIndex, int charCount,
-                                      byte[] bytes, int byteIndex)
-            => EncodingForwarder.GetBytes(this, chars, charIndex, charCount, bytes, byteIndex);
-
-        public override int GetBytes(char[] chars, int charIndex, int charCount,
-                                       byte[] bytes, int byteIndex)
-            => EncodingForwarder.GetBytes(this, chars, charIndex, charCount, bytes, byteIndex);
-
-        [CLSCompliant(false)]
-        [System.Runtime.InteropServices.ComVisible(false)]
-        public override unsafe int GetBytes(char* chars, int charCount, byte* bytes, int byteCount)
-            => EncodingForwarder.GetBytes(this, chars, charCount, bytes, byteCount);
-#endif // !BIGENDIAN
 
         // Returns the number of characters produced by decoding a range of bytes
         // in a byte array.
@@ -601,13 +586,8 @@ namespace System.Text
 
         // Our workhorse
         // Note:  We ignore mismatched surrogates, unless the exception flag is set in which case we throw
-#if BIGENDIAN
-        internal override unsafe int GetBytes(char* chars, int charCount,
-                                                byte* bytes, int byteCount, EncoderNLS baseEncoder)
-#else
         internal override unsafe int GetBytesFallback(char* chars, int charCount,
                                                 byte* bytes, int byteCount, EncoderNLS baseEncoder)
-#endif
         {
             Debug.Assert(chars!=null, "[UTF8Encoding.GetBytes]chars!=null");
             Debug.Assert(byteCount >=0, "[UTF8Encoding.GetBytes]byteCount >=0");

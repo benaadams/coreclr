@@ -180,7 +180,6 @@ namespace System.Text
             return encoding.GetBytes(chars, charCount, bytes, byteCount, encoder: null);
         }
 
-#if !BIGENDIAN
         // Ascii fast-paths
         public unsafe static byte[] GetBytesAsciiFastPath(Encoding encoding, String s)
         {
@@ -251,7 +250,7 @@ namespace System.Text
 
             // Note that byteCount is the # of bytes to decode, not the size of the array
             int byteCount = bytes.Length - byteIndex;
-            int lengthEncoded = 0;
+            int bytesWritten;
             if (charCount > 0) 
             {
                 if (byteCount == 0)
@@ -265,21 +264,21 @@ namespace System.Text
                 {
                     char* input = pInput + charIndex;
                     byte* output = pOutput + byteIndex;
-                    lengthEncoded = GetBytesAsciiFastPath(input, output, Math.Min(charCount, byteCount));
-                    if (lengthEncoded < charCount) 
+                    int charactersConsumed;
+                    if (!TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
                     {
                         // Not all ASCII, use encoding's GetBytes for remaining conversion
-                        lengthEncoded += encoding.GetBytesFallback(input + lengthEncoded, charCount - lengthEncoded, output + lengthEncoded, byteCount - lengthEncoded, null);
+                        bytesWritten += encoding.GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
                     }
                 }
             } 
             else 
             {
                 // Nothing to encode
-                lengthEncoded = 0;
+                bytesWritten = 0;
             }
 
-            return lengthEncoded;
+            return bytesWritten;
         }
 
         public unsafe static int GetBytesAsciiFastPath(Encoding encoding, char* chars, int charCount, byte* bytes, int byteCount)
@@ -295,7 +294,7 @@ namespace System.Text
             }
             Contract.EndContractBlock();
 
-            int lengthEncoded = 0;
+            int bytesWritten;
             if (charCount > 0)
             {
                 if (byteCount == 0)
@@ -303,20 +302,20 @@ namespace System.Text
                     // Definitely not enough space, early bail
                     ThrowBytesOverflow(encoding);
                 }
-                lengthEncoded = GetBytesAsciiFastPath(chars, bytes, Math.Min(charCount, byteCount));
-                if (lengthEncoded < charCount)
+                int charactersConsumed;
+                if (!TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
                 {
                     // Not all ASCII, use encoding's GetBytes for remaining conversion
-                    lengthEncoded += encoding.GetBytesFallback(chars + lengthEncoded, charCount - lengthEncoded, bytes + lengthEncoded, byteCount - lengthEncoded, null);
+                    bytesWritten += encoding.GetBytesFallback(chars + charactersConsumed, charCount - charactersConsumed, bytes + bytesWritten, byteCount - bytesWritten, null);
                 }
             }
             else
             {
                 // Nothing to encode
-                lengthEncoded = 0;
+                bytesWritten = 0;
             }
 
-            return lengthEncoded;
+            return bytesWritten;
         }
 
         public unsafe static int GetBytesAsciiFastPath(Encoding encoding, char* chars, int charCount, byte* bytes, int byteCount, EncoderNLS encoder)
@@ -329,15 +328,14 @@ namespace System.Text
             Debug.Assert(charCount >= 0);
             Debug.Assert(byteCount >= 0);
 
-
-            int lengthEncoded = 0;
-            int bytesEncoded = 0;
+            int bytesWritten;
+            int charactersConsumed = 0;
             if (((encoder?.InternalHasFallbackBuffer ?? false) && 
                  (encoder.FallbackBuffer.Remaining > 0)) ||
                 (charCount > byteCount))
             {
                 // Non-ASCII data already in Fallback buffer, so straight to encoder's version
-                bytesEncoded = encoding.GetBytesFallback(chars, charCount, bytes, byteCount, encoder);
+                bytesWritten = encoding.GetBytesFallback(chars, charCount, bytes, byteCount, encoder);
             } 
             else if (charCount > 0)
             {
@@ -346,26 +344,24 @@ namespace System.Text
                     // Definitely not enough space, early bail
                     ThrowBytesOverflow(encoding);
                 }
-                bytesEncoded = GetBytesAsciiFastPath(chars, bytes, Math.Min(charCount, byteCount));
-                lengthEncoded = bytesEncoded;
-                if (bytesEncoded < charCount)
+                if (!TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
                 {
                     // Not all ASCII, use encoding's GetBytes for remaining conversion
-                    bytesEncoded += encoding.GetBytesFallback(chars + bytesEncoded, charCount - bytesEncoded, bytes + bytesEncoded, byteCount - bytesEncoded, encoder);
+                    bytesWritten += encoding.GetBytesFallback(chars + charactersConsumed, charCount - charactersConsumed, bytes + bytesWritten, byteCount - bytesWritten, encoder);
                 }
             }
             else
             {
                 // Nothing to encode
-                bytesEncoded = 0;
+                bytesWritten = 0;
             }
 
             if (encoder != null)
             {
-                encoder.m_charsUsed += lengthEncoded;
+                encoder.m_charsUsed += charactersConsumed;
             }
             
-            return bytesEncoded;
+            return bytesWritten;
         }
 
         public unsafe static int GetBytesAsciiFastPath(Encoding encoding, String s, int charIndex, int charCount, byte[] bytes, int byteIndex)
@@ -385,7 +381,7 @@ namespace System.Text
 
             // Note that byteCount is the # of bytes to decode, not the size of the array
             int byteCount = bytes.Length - byteIndex;
-            int lengthEncoded = 0;
+            int bytesWritten;
             if (charCount > 0) 
             {
                 if (byteCount == 0)
@@ -398,45 +394,45 @@ namespace System.Text
                 {
                     char* input = pInput + charIndex;
                     byte* output = pOutput + byteIndex;
-                    lengthEncoded = GetBytesAsciiFastPath(input, output, Math.Min(charCount, byteCount));
-                    if (lengthEncoded < charCount) 
+                    int charactersConsumed;
+                    if (!TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
                     {
                         // Not all ASCII, use encoding's GetBytes for remaining conversion
-                        lengthEncoded += encoding.GetBytesFallback(input + lengthEncoded, charCount - lengthEncoded, output + lengthEncoded, byteCount - lengthEncoded, null);
+                        bytesWritten += encoding.GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
                     }
                 }
             } 
             else 
             {
                 // Nothing to encode
-                lengthEncoded = 0;
+                bytesWritten = 0;
             }
 
-            return lengthEncoded;
+            return bytesWritten;
         }
 
         private unsafe static byte[] GetBytesAsciiFastPath(Encoding encoding, char* input, int charCount)
         {
             // Fast path for pure ASCII data for ASCII and UTF8 encoding
-            int asciiLength;
+            int charactersConsumed;
             int remaining = 0;
             // Assume string is all ASCII and size array for that
             byte[] bytes = new byte[charCount];
 
+            int bytesWritten;
             fixed (byte* output = &bytes[0]) 
             {
-                asciiLength = GetBytesAsciiFastPath(input, output, charCount);
-                if (asciiLength < charCount) 
+                if (!TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
                 {
                     // Not all ASCII, get the byte count for the remaining encoded conversion
-                    remaining = encoding.GetByteCount(input + asciiLength, charCount - asciiLength, null);
+                    remaining = encoding.GetByteCount(input + charactersConsumed, charCount - charactersConsumed, null);
                 }
             }
 
             if (remaining > 0) 
             {
                 // Not all ASCII, fallback to slower path for remaining encoding
-                var encoded = ResizeGetRemainingBytes(encoding, input, charCount, ref bytes, asciiLength, remaining);
+                var encoded = ResizeGetRemainingBytes(encoding, input, charCount, ref bytes, bytesWritten, remaining);
                 Debug.Assert(encoded == remaining);
             }
 
@@ -446,7 +442,10 @@ namespace System.Text
         internal unsafe static int ResizeGetRemainingBytes(Encoding encoding, char* chars, int charCount, ref byte[] bytes, int alreadyEncoded, int remaining)
         {
             // Resize the array to the correct size
-            Array.Resize(ref bytes, alreadyEncoded + remaining);
+            byte[] oldArray = bytes;
+            bytes = new byte[alreadyEncoded + remaining];
+            // Copy already encoded bytes
+            Array.Copy(oldArray, 0, bytes, 0, alreadyEncoded);
 
             int encoded;
             fixed (byte* output = &bytes[0]) 
@@ -458,15 +457,17 @@ namespace System.Text
             return encoded;
         }
 
-        internal unsafe static int GetBytesAsciiFastPath(char* input, byte* output, int byteCount)
+        internal unsafe static bool TryEncode(char* input, int charCount, byte* output, int byteCount, out int charactersConsumed, out int bytesWritten)
         {
             const int Shift16Shift24 = (1 << 16) | (1 << 24);
             const int Shift8Identity = (1 <<  8) | (1);
 
+            int charsToEncode = Math.Min(charCount, byteCount);
+
             // Encode as bytes upto the first non-ASCII byte and return count encoded
             int i = 0;
-#if BIT64
-            if (byteCount < 4) goto trailing;
+#if BIT64 && !BIGENDIAN
+            if (charsToEncode < 4) goto trailing;
 
             int unaligned = (int)(((ulong)input) & 0x7) >> 1;
             // Unaligned chars
@@ -484,7 +485,7 @@ namespace System.Text
             }
 
             // Aligned
-            int ulongDoubleCount = (byteCount - i) & ~0x7;
+            int ulongDoubleCount = (charsToEncode - i) & ~0x7;
             for (; i < ulongDoubleCount; i += 8) 
             {
                 ulong inputUlong0 = *(ulong*)(input + i);
@@ -501,7 +502,7 @@ namespace System.Text
                     ((uint)((inputUlong1 * Shift16Shift24) >> 24) & 0xffff) |
                     ((uint)((inputUlong1 * Shift8Identity) >> 24) & 0xffff0000);
             }
-            if (byteCount - 4 > i) 
+            if (charsToEncode - 4 > i) 
             {
                 ulong inputUlong = *(ulong*)(input + i);
                 if ((inputUlong & 0xFF80FF80FF80FF80) != 0) 
@@ -516,7 +517,7 @@ namespace System.Text
             }
 
          trailing:
-            for (; i < byteCount; i++) 
+            for (; i < charsToEncode; i++) 
             {
                 char ch = *(input + i);
                 if (ch > 0x7F) 
@@ -545,7 +546,7 @@ namespace System.Text
             }
 
             // Aligned
-            int uintCount = (byteCount - i) & ~0x3;
+            int uintCount = (charsToEncode - i) & ~0x3;
             for (; i < uintCount; i += 4) 
             {
                 uint inputUint0 = *(uint*)(input + i);
@@ -555,22 +556,34 @@ namespace System.Text
                     goto exit; // Found non-ASCII, bail
                 }
                 // Pack 4 ASCII chars into 4 bytes
+#if BIGENDIAN
+                *(output + i) = (byte)(inputUint0 >> 16);
+                *(output + i + 1) = (byte)inputUint0;
+                *(output + i + 2) = (byte)(inputUint1 >> 16);
+                *(output + i + 3) = (byte)inputUint1;
+#else // BIGENDIAN
                 *(ushort*)(output + i) = (ushort)(inputUint0 | (inputUint0 >> 8));
                 *(ushort*)(output + i + 2) = (ushort)(inputUint1 | (inputUint1 >> 8));
+#endif // BIGENDIAN
             }
-            if (byteCount - 1 > i) 
+            if (charsToEncode - 1 > i) 
             {
                 uint inputUint = *(uint*)(input + i);
                 if ((inputUint & 0xFF80FF80) != 0) 
                 {
                     goto exit; // Found non-ASCII, bail
                 }
+#if BIGENDIAN
+                *(output + i) = (byte)(inputUint0 >> 16);
+                *(output + i + 1) = (byte)inputUint0;
+#else // BIGENDIAN
                 // Pack 2 ASCII chars into 2 bytes
                 *(ushort*)(output + i) = (ushort)(inputUint | (inputUint >> 8));
+#endif // BIGENDIAN
                 i += 2;
             }
 
-            if (i < byteCount) 
+            if (i < charsToEncode) 
             {
                 char ch = *(input + i);
                 if (ch > 0x7F) 
@@ -579,15 +592,20 @@ namespace System.Text
                 }
                 else 
                 {
+#if BIGENDIAN
+                    *(output + i) = (byte)(ch >> 16);
+#else // BIGENDIAN
                     *(output + i) = (byte)ch; // Cast convert
-                    i = byteCount;
+#endif // BIGENDIAN
+                    i = charsToEncode;
                 }
             }
 #endif // BIT64
         exit:
-            return i;
+            bytesWritten = i;
+            charactersConsumed = i;
+            return charCount == charactersConsumed;
         }
-#endif // !BIGENDIAN
 
         public unsafe static int GetCharCount(Encoding encoding, byte[] bytes, int index, int count)
         {
