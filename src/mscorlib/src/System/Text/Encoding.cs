@@ -917,14 +917,6 @@ namespace System.Text
             return GetBytes(chars, charCount, bytes, byteCount);
         }
 
-        internal virtual unsafe int GetBytesFallback(char* chars, int charCount,
-                                                byte* bytes, int byteCount, EncoderNLS encoder)
-        {
-            // Used for fallback for internal GetBytes(..., EncoderNLS encoder) 
-            // where it shares a common path.
-            throw new NotSupportedException();
-        }
-
         // We expect this to be the workhorse for NLS Encodings, but for existing
         // ones we need a working (if slow) default implimentation)
         //
