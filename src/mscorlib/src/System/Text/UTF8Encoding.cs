@@ -151,7 +151,7 @@ namespace System.Text
             if (charCount > 0) 
             {
                 fixed (char* input = s)
-                    bytes = GetBytesImpl(input, charCount);
+                    bytes = GetBytesValidated(input, charCount);
             } 
             else 
             {
@@ -213,7 +213,7 @@ namespace System.Text
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.chars, ExceptionResource.ArgumentNull_Array);
             Contract.EndContractBlock();
             
-            return GetBytesImpl(chars, 0, chars.Length);
+            return GetBytesValidated(chars, 0, chars.Length);
         }
 
         public override byte[] GetBytes(char[] chars, int index, int count) {
@@ -226,17 +226,17 @@ namespace System.Text
             }
             Contract.EndContractBlock();
             
-            return GetBytesImpl(chars, index, count);
+            return GetBytesValidated(chars, index, count);
         }
 
-        private unsafe byte[] GetBytesImpl(char[] chars, int index, int count)
+        private unsafe byte[] GetBytesValidated(char[] chars, int index, int count)
         {
             byte[] bytes;
             if (count > 0)
             {
                 fixed (char* input = chars)
                 {
-                    bytes = GetBytesImpl(input + index, count);
+                    bytes = GetBytesValidated(input + index, count);
                 }
             }
             else
@@ -247,7 +247,7 @@ namespace System.Text
             return bytes;
         }
 
-        private unsafe byte[] GetBytesImpl(char* input, int charCount)
+        private unsafe byte[] GetBytesValidated(char* input, int charCount)
         {
             int charactersConsumed;
             int remaining = 0;
