@@ -82,7 +82,6 @@ namespace System.Text
 
         public unsafe override byte[] GetBytes(String s)
         {
-            Debug.Assert(this != null);
             if (s == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s, ExceptionResource.ArgumentNull_String);
             Contract.EndContractBlock();
@@ -189,7 +188,6 @@ namespace System.Text
 
         private unsafe byte[] GetBytesValidated(char* input, int charCount)
         {
-            int charactersConsumed;
             int remaining = 0;
             // Assume string is all ASCII and size array for that
             byte[] bytes = new byte[charCount];
@@ -197,6 +195,7 @@ namespace System.Text
             int bytesWritten;
             fixed (byte* output = &bytes[0]) 
             {
+                int charactersConsumed;
                 if (!EncodingForwarder.TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
                 {
                     // Not all ASCII, get the byte count for the remaining encoded conversion

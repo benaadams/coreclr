@@ -210,6 +210,10 @@ namespace System {
             throw GetInvalidOperationException(ExceptionResource.InvalidOperation_EnumFailedVersion);
         }
 
+        internal static ArgumentNullException GetArgumentNullException(ExceptionArgument argument) {
+            return new ArgumentNullException(GetArgumentName(argument));
+        }
+
         internal static ArgumentNullException GetArgumentNullException(ExceptionArgument argument, ExceptionResource resource) {
             throw new ArgumentNullException(GetArgumentName(argument), GetResourceString(resource));
         }

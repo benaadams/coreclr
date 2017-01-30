@@ -59,9 +59,7 @@ namespace System.Text
             Debug.Assert(encoding != null);
             if (s == null)
             {
-                string paramName = encoding is ASCIIEncoding ? "chars" : nameof(s); // ASCIIEncoding calls the string chars
-                // UTF8Encoding does this as well, but it originally threw an ArgumentNull for "s" so don't check for that
-                throw new ArgumentNullException(paramName);
+                ThrowValidationFailed(encoding);
             }
             Contract.EndContractBlock();
 
@@ -494,11 +492,24 @@ namespace System.Text
             throw GetValidationFailedException(chars, charCount, bytes);
         }
 
+        private static void ThrowValidationFailed(Encoding encoding)
+        {
+            throw GetValidationFailedException(encoding);
+        }
+
         private static ArgumentException GetArgumentException_ThrowBytesOverflow(Encoding encoding)
         {
             throw new ArgumentException(
                 Environment.GetResourceString("Argument_EncodingConversionOverflowBytes",
                 encoding.EncodingName, encoding.EncoderFallback.GetType()), "bytes");
+        }
+
+        private static Exception GetValidationFailedException(Encoding encoding)
+        {
+            if (encoding is ASCIIEncoding)
+                return ThrowHelper.GetArgumentNullException(ExceptionArgument.chars);
+            else 
+                return ThrowHelper.GetArgumentNullException(ExceptionArgument.s);
         }
 
         private static Exception GetValidationFailedException(char[] chars, int index, int count)

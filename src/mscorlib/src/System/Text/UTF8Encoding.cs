@@ -140,7 +140,6 @@ namespace System.Text
         public unsafe override byte[] GetBytes(String s)
         {
             // Fast path for pure ASCII data for ASCII and UTF8 encoding
-            Debug.Assert(this != null);
             if (s == null)
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s, ExceptionResource.ArgumentNull_String);
             Contract.EndContractBlock();
@@ -249,7 +248,6 @@ namespace System.Text
 
         private unsafe byte[] GetBytesValidated(char* input, int charCount)
         {
-            int charactersConsumed;
             int remaining = 0;
             // Assume string is all ASCII and size array for that
             byte[] bytes = new byte[charCount];
@@ -257,6 +255,7 @@ namespace System.Text
             int bytesWritten;
             fixed (byte* output = &bytes[0]) 
             {
+                int charactersConsumed;
                 // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
                 // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
                 if (!EncodingForwarder.TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
