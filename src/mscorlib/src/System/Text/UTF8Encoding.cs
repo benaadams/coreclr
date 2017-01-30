@@ -189,9 +189,7 @@ namespace System.Text
                     char* input = pInput + charIndex;
                     byte* output = pOutput + byteIndex;
                     int charactersConsumed;
-                    // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
-                    // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
-                    if (!EncodingForwarder.TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
+                    if (!TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
                     {
                         // Not all converted, use GetBytesFallback for remaining conversion
                         bytesWritten += GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
@@ -255,9 +253,7 @@ namespace System.Text
             {
                 int bytesWritten;
                 int charactersConsumed;
-                // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
-                // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
-                if (!EncodingForwarder.TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
+                if (!TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
                 {
                     // Not all converted, use GetBytesFallback for remaining conversion
                     bytesWritten += GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
@@ -310,9 +306,7 @@ namespace System.Text
                     char* input = pInput + charIndex;
                     byte* output = pOutput + byteIndex;
                     int charactersConsumed;
-                    // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
-                    // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
-                    if (!EncodingForwarder.TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
+                    if (!TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
                     {
                         // Not all converted, use GetBytesFallback for remaining conversion
                         bytesWritten += GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
@@ -350,9 +344,7 @@ namespace System.Text
                     EncodingForwarder.ThrowBytesOverflow(this);
                 }
                 int charactersConsumed;
-                // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
-                // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
-                if (!EncodingForwarder.TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
+                if (!TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
                 {
                     // Not all converted, use GetBytesFallback for remaining conversion
                     bytesWritten += GetBytesFallback(chars + charactersConsumed, charCount - charactersConsumed, bytes + bytesWritten, byteCount - bytesWritten, null);
@@ -392,9 +384,7 @@ namespace System.Text
                     // Definitely not enough space, early bail
                     EncodingForwarder.ThrowBytesOverflow(this);
                 }
-                // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
-                // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
-                if (!EncodingForwarder.TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
+                if (!TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
                 {
                     // Not all converted, use GetBytesFallback for remaining conversion
                     bytesWritten += GetBytesFallback(chars + charactersConsumed, charCount - charactersConsumed, bytes + bytesWritten, byteCount - bytesWritten, encoder);
@@ -412,6 +402,277 @@ namespace System.Text
             }
             
             return bytesWritten;
+        }
+
+        private unsafe static bool TryEncode(char* chars, int charCount, byte* bytes, int byteCount, out int charactersConsumed, out int bytesWritten)
+        {
+            const char HIGH_SURROGATE_START = '\ud800';
+            const char HIGH_SURROGATE_END = '\udbff';
+            const char LOW_SURROGATE_START = '\udc00';
+            const char LOW_SURROGATE_END = '\udfff';
+
+            char* pSrc = chars;
+            byte* pTarget = bytes;
+
+            char* pEnd = pSrc + charCount; // utf16.Length;
+            byte* pAllocatedBufferEnd = pTarget + byteCount; // utf8.Length;
+
+            // assume that JIT will enregister pSrc, pTarget and ch
+
+            // don't fall into the fast decoding loop if we don't have enough characters
+            // Note that if we don't have enough bytes, pStop will prevent us from entering the fast loop.
+            while (pSrc < pEnd - 13)
+            {
+                // we need at least 1 byte per character, but Convert might allow us to convert
+                // only part of the input, so try as much as we can.  Reduce charCount if necessary
+                int available = Math.Min(PtrDiff(pEnd, pSrc), PtrDiff(pAllocatedBufferEnd, pTarget));
+
+                // FASTLOOP:
+                // - optimistic range checks
+                // - fallbacks to the slow loop for all special cases, exception throwing, etc.
+
+                // To compute the upper bound, assume that all characters are ASCII characters at this point,
+                //  the boundary will be decreased for every non-ASCII character we encounter
+                // Also, we need 5 chars reserve for the unrolled ansi decoding loop and for decoding of surrogates
+                // If there aren't enough bytes for the output, then pStop will be <= pSrc and will bypass the loop.
+                char* pStop = pSrc + available - 5;
+                if (pSrc >= pStop)
+                    break;
+
+                do
+                {
+                    int ch = *pSrc;
+                    pSrc++;
+
+                    if (ch > 0x7F)
+                    {
+                        goto LongCode;
+                    }
+                    *pTarget = (byte)ch;
+                    pTarget++;
+
+                    // get pSrc aligned
+                    if ((unchecked((int)pSrc) & 0x2) != 0)
+                    {
+                        ch = *pSrc;
+                        pSrc++;
+                        if (ch > 0x7F)
+                        {
+                            goto LongCode;
+                        }
+                        *pTarget = (byte)ch;
+                        pTarget++;
+                    }
+
+                    // Run 4 characters at a time!
+                    while (pSrc < pStop)
+                    {
+                        ch = *(int*)pSrc;
+                        int chc = *(int*)(pSrc + 2);
+                        if (((ch | chc) & unchecked((int)0xFF80FF80)) != 0)
+                        {
+                            goto LongCodeWithMask;
+                        }
+
+                        // Unfortunately, this is endianess sensitive
+#if BIGENDIAN
+                        *pTarget = (byte)(ch >> 16);
+                        *(pTarget + 1) = (byte)ch;
+                        pSrc += 4;
+                        *(pTarget + 2) = (byte)(chc >> 16);
+                        *(pTarget + 3) = (byte)chc;
+                        pTarget += 4;
+#else // BIGENDIAN
+                        *pTarget = (byte)ch;
+                        *(pTarget + 1) = (byte)(ch >> 16);
+                        pSrc += 4;
+                        *(pTarget + 2) = (byte)chc;
+                        *(pTarget + 3) = (byte)(chc >> 16);
+                        pTarget += 4;
+#endif // BIGENDIAN
+                    }
+                    continue;
+
+                LongCodeWithMask:
+#if BIGENDIAN
+                    // be careful about the sign extension
+                    ch = (int)(((uint)ch) >> 16);
+#else // BIGENDIAN
+                    ch = (char)ch;
+#endif // BIGENDIAN
+                    pSrc++;
+
+                    if (ch > 0x7F)
+                    {
+                        goto LongCode;
+                    }
+                    *pTarget = (byte)ch;
+                    pTarget++;
+                    continue;
+
+                    LongCode:
+                    // use separate helper variables for slow and fast loop so that the jit optimizations
+                    // won't get confused about the variable lifetimes
+                    int chd;
+                    if (ch <= 0x7FF)
+                    {
+                        // 2 byte encoding
+                        chd = unchecked((sbyte)0xC0) | (ch >> 6);
+                    }
+                    else
+                    {
+                        // if (!IsLowSurrogate(ch) && !IsHighSurrogate(ch))
+                        if (!InRange(ch, HIGH_SURROGATE_START, LOW_SURROGATE_END))
+                        {
+                            // 3 byte encoding
+                            chd = unchecked((sbyte)0xE0) | (ch >> 12);
+                        }
+                        else
+                        {
+                            // 4 byte encoding - high surrogate + low surrogate
+                            // if (!IsHighSurrogate(ch))
+                            if (ch > HIGH_SURROGATE_END)
+                            {
+                                // low without high -> bad, try again in slow loop
+                                goto NeedMore;
+                            }
+
+                            chd = *pSrc;
+
+                            // if (!IsLowSurrogate(chd)) {
+                            if (!InRange(chd, LOW_SURROGATE_START, LOW_SURROGATE_END))
+                            {
+                                // high not followed by low -> bad
+                                goto NeedMore;
+                            }
+
+                            pSrc++;
+
+                            ch = chd + (ch << 10) +
+                                (0x10000
+                                - LOW_SURROGATE_START
+                                - (HIGH_SURROGATE_START << 10));
+
+                            *pTarget = (byte)(unchecked((sbyte)0xF0) | (ch >> 18));
+                            // pStop - this byte is compensated by the second surrogate character
+                            // 2 input chars require 4 output bytes.  2 have been anticipated already
+                            // and 2 more will be accounted for by the 2 pStop-- calls below.
+                            pTarget++;
+
+                            chd = unchecked((sbyte)0x80) | (ch >> 12) & 0x3F;
+                        }
+                        *pTarget = (byte)chd;
+                        pStop--;                    // 3 byte sequence for 1 char, so need pStop-- and the one below too.
+                        pTarget++;
+
+                        chd = unchecked((sbyte)0x80) | (ch >> 6) & 0x3F;
+                    }
+                    *pTarget = (byte)chd;
+                    pStop--;                        // 2 byte sequence for 1 char so need pStop--.
+
+                    *(pTarget + 1) = (byte)(unchecked((sbyte)0x80) | ch & 0x3F);
+                    // pStop - this byte is already included
+
+                    pTarget += 2;
+                }
+                while (pSrc < pStop);
+
+                Debug.Assert(pTarget <= pAllocatedBufferEnd, "[UTF8Encoding.GetBytes]pTarget <= pAllocatedBufferEnd");
+            }
+
+            while (pSrc < pEnd)
+            {
+                // SLOWLOOP: does all range checks, handles all special cases, but it is slow
+
+                // read next char. The JIT optimization seems to be getting confused when
+                // compiling "ch = *pSrc++;", so rather use "ch = *pSrc; pSrc++;" instead
+                int ch = *pSrc;
+                pSrc++;
+
+                if (ch <= 0x7F)
+                {
+                    if (pTarget >= pAllocatedBufferEnd)
+                        goto NeedMore;
+
+                    *pTarget = (byte)ch;
+                    pTarget++;
+                    continue;
+                }
+
+                int chd;
+                if (ch <= 0x7FF)
+                {
+                    if (pTarget >= pAllocatedBufferEnd - 1)
+                        goto NeedMore;
+
+                    // 2 byte encoding
+                    chd = unchecked((sbyte)0xC0) | (ch >> 6);
+                }
+                else
+                {
+                    // if (!IsLowSurrogate(ch) && !IsHighSurrogate(ch))
+                    if (!InRange(ch, HIGH_SURROGATE_START, LOW_SURROGATE_END))
+                    {
+                        if (pTarget >= pAllocatedBufferEnd - 2)
+                            goto NeedMore;
+
+                        // 3 byte encoding
+                        chd = unchecked((sbyte)0xE0) | (ch >> 12);
+                    }
+                    else
+                    {
+                        if (pTarget >= pAllocatedBufferEnd - 3)
+                            goto NeedMore;
+
+                        // 4 byte encoding - high surrogate + low surrogate
+                        // if (!IsHighSurrogate(ch))
+                        if (ch > HIGH_SURROGATE_END)
+                        {
+                            // low without high -> bad, try again in slow loop
+                            goto NeedMore;
+                        }
+
+                        chd = *pSrc;
+
+                        // if (!IsLowSurrogate(chd)) {
+                        if (!InRange(chd, LOW_SURROGATE_START, LOW_SURROGATE_END))
+                        {
+                            // high not followed by low -> bad
+                            goto NeedMore;
+                        }
+
+                        pSrc++;
+
+                        ch = chd + (ch << 10) +
+                            (0x10000
+                            - LOW_SURROGATE_START
+                            - (HIGH_SURROGATE_START << 10));
+
+                        *pTarget = (byte)(unchecked((sbyte)0xF0) | (ch >> 18));
+                        pTarget++;
+
+                        chd = unchecked((sbyte)0x80) | (ch >> 12) & 0x3F;
+                    }
+                    *pTarget = (byte)chd;
+                    pTarget++;
+
+                    chd = unchecked((sbyte)0x80) | (ch >> 6) & 0x3F;
+                }
+
+                *pTarget = (byte)chd;
+                *(pTarget + 1) = (byte)(unchecked((sbyte)0x80) | ch & 0x3F);
+
+                pTarget += 2;
+            }
+
+            charactersConsumed = (int)(pSrc - chars);
+            bytesWritten = (int)(pTarget - bytes);
+            return true;
+
+        NeedMore:
+            charactersConsumed = (int)((pSrc - 1) - chars);
+            bytesWritten = (int)(pTarget - bytes);
+            return false;
         }
 
         // Returns the number of characters produced by decoding a range of bytes

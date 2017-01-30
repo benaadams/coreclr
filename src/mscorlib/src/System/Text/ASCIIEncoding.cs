@@ -131,7 +131,7 @@ namespace System.Text
                     char* input = pInput + charIndex;
                     byte* output = pOutput + byteIndex;
                     int charactersConsumed;
-                    if (!EncodingForwarder.TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
+                    if (!TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
                     {
                         // Not all ASCII, GetBytesFallback for remaining conversion
                         bytesWritten += GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
@@ -196,7 +196,7 @@ namespace System.Text
             fixed (byte* output = &bytes[0]) 
             {
                 int charactersConsumed;
-                if (!EncodingForwarder.TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
+                if (!TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
                 {
                     // Not all ASCII, get the byte count for the remaining encoded conversion
                     remaining = GetByteCount(input + charactersConsumed, charCount - charactersConsumed, null);
@@ -270,7 +270,7 @@ namespace System.Text
                     char* input = pInput + charIndex;
                     byte* output = pOutput + byteIndex;
                     int charactersConsumed;
-                    if (!EncodingForwarder.TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
+                    if (!TryEncode(input, charCount, output, byteCount, out charactersConsumed, out bytesWritten)) 
                     {
                         // Not all ASCII, GetBytesFallback for remaining conversion
                         bytesWritten += GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
@@ -308,7 +308,7 @@ namespace System.Text
                     EncodingForwarder.ThrowBytesOverflow(this);
                 }
                 int charactersConsumed;
-                if (!EncodingForwarder.TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
+                if (!TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
                 {
                     // Not all ASCII, GetBytesFallback for remaining conversion
                     bytesWritten += GetBytesFallback(chars + charactersConsumed, charCount - charactersConsumed, bytes + bytesWritten, byteCount - bytesWritten, null);
@@ -348,7 +348,7 @@ namespace System.Text
                     // Definitely not enough space, early bail
                     EncodingForwarder.ThrowBytesOverflow(this);
                 }
-                if (!EncodingForwarder.TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
+                if (!TryEncode(chars, charCount, bytes, byteCount, out charactersConsumed, out bytesWritten))
                 {
                     // Not all ASCII, use GetBytesFallback for remaining conversion
                     bytesWritten += GetBytesFallback(chars + charactersConsumed, charCount - charactersConsumed, bytes + bytesWritten, byteCount - bytesWritten, encoder);
@@ -366,6 +366,156 @@ namespace System.Text
             }
             
             return bytesWritten;
+        }
+
+        private unsafe static bool TryEncode(char* chars, int charCount, byte* bytes, int byteCount, out int charactersConsumed, out int bytesWritten)
+        {
+            const int Shift16Shift24 = (1 << 16) | (1 << 24);
+            const int Shift8Identity = (1 << 8) | (1);
+
+            int charsToEncode = Math.Min(charCount, byteCount);
+
+            // Encode as bytes upto the first non-ASCII byte and return count encoded
+            int i = 0;
+#if BIT64 && !BIGENDIAN
+            if (charsToEncode < 4) goto trailing;
+
+            int unaligned = (int)(((ulong)chars) & 0x7) >> 1;
+            // Unaligned chars
+            for (; i < unaligned; i++)
+            {
+                char ch = *(chars + i);
+                if (ch > 0x7F)
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+                else
+                {
+                    *(bytes + i) = (byte)ch; // Cast convert
+                }
+            }
+
+            // Aligned
+            int ulongDoubleCount = (charsToEncode - i) & ~0x7;
+            for (; i < ulongDoubleCount; i += 8)
+            {
+                ulong inputUlong0 = *(ulong*)(chars + i);
+                ulong inputUlong1 = *(ulong*)(chars + i + 4);
+                if (((inputUlong0 | inputUlong1) & 0xFF80FF80FF80FF80) != 0)
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+                // Pack 16 ASCII chars into 16 bytes
+                *(uint*)(bytes + i) =
+                    ((uint)((inputUlong0 * Shift16Shift24) >> 24) & 0xffff) |
+                    ((uint)((inputUlong0 * Shift8Identity) >> 24) & 0xffff0000);
+                *(uint*)(bytes + i + 4) =
+                    ((uint)((inputUlong1 * Shift16Shift24) >> 24) & 0xffff) |
+                    ((uint)((inputUlong1 * Shift8Identity) >> 24) & 0xffff0000);
+            }
+            if (charsToEncode - 4 > i)
+            {
+                ulong inputUlong = *(ulong*)(chars + i);
+                if ((inputUlong & 0xFF80FF80FF80FF80) != 0)
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+                // Pack 8 ASCII chars into 8 bytes
+                *(uint*)(bytes + i) =
+                    ((uint)((inputUlong * Shift16Shift24) >> 24) & 0xffff) |
+                    ((uint)((inputUlong * Shift8Identity) >> 24) & 0xffff0000);
+                i += 4;
+            }
+
+            trailing:
+            for (; i < charsToEncode; i++)
+            {
+                char ch = *(chars + i);
+                if (ch > 0x7F)
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+                else
+                {
+                    *(bytes + i) = (byte)ch; // Cast convert
+                }
+            }
+#else
+            // Unaligned chars
+            if ((unchecked((int)chars) & 0x2) != 0) 
+            {
+                char ch = *chars;
+                if (ch > 0x7F) 
+                {
+                    goto exit; // Found non-ASCII, bail
+                } 
+                else 
+                {
+                    i = 1;
+                    *(bytes) = (byte)ch; // Cast convert
+                }
+            }
+
+            // Aligned
+            int uintCount = (charsToEncode - i) & ~0x3;
+            for (; i < uintCount; i += 4) 
+            {
+                uint inputUint0 = *(uint*)(chars + i);
+                uint inputUint1 = *(uint*)(chars + i + 2);
+                if (((inputUint0 | inputUint1) & 0xFF80FF80) != 0) 
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+                // Pack 4 ASCII chars into 4 bytes
+#if BIGENDIAN
+                *(bytes + i) = (byte)(inputUint0 >> 16);
+                *(bytes + i + 1) = (byte)inputUint0;
+                *(bytes + i + 2) = (byte)(inputUint1 >> 16);
+                *(bytes + i + 3) = (byte)inputUint1;
+#else // BIGENDIAN
+                *(ushort*)(bytes + i) = (ushort)(inputUint0 | (inputUint0 >> 8));
+                *(ushort*)(bytes + i + 2) = (ushort)(inputUint1 | (inputUint1 >> 8));
+#endif // BIGENDIAN
+            }
+            if (charsToEncode - 1 > i) 
+            {
+                uint inputUint = *(uint*)(chars + i);
+                if ((inputUint & 0xFF80FF80) != 0) 
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+#if BIGENDIAN
+                *(bytes + i) = (byte)(inputUint0 >> 16);
+                *(bytes + i + 1) = (byte)inputUint0;
+#else // BIGENDIAN
+                // Pack 2 ASCII chars into 2 bytes
+                *(ushort*)(bytes + i) = (ushort)(inputUint | (inputUint >> 8));
+#endif // BIGENDIAN
+                i += 2;
+            }
+
+            if (i < charsToEncode) 
+            {
+                char ch = *(chars + i);
+                if (ch > 0x7F) 
+                {
+                    goto exit; // Found non-ASCII, bail
+                }
+                else 
+                {
+#if BIGENDIAN
+                    *(bytes + i) = (byte)(ch >> 16);
+#else // BIGENDIAN
+                    *(bytes + i) = (byte)ch; // Cast convert
+#endif // BIGENDIAN
+                    i = charsToEncode;
+                }
+            }
+#endif // BIT64
+            exit:
+            bytesWritten = i;
+            charactersConsumed = i;
+            return charCount == charactersConsumed;
         }
 
         // Returns the number of characters produced by decoding a range of bytes
