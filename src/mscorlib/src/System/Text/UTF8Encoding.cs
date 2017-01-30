@@ -248,51 +248,30 @@ namespace System.Text
 
         private unsafe byte[] GetBytesValidated(char* input, int charCount)
         {
-            int remaining = 0;
-            // Assume string is all ASCII and size array for that
-            byte[] bytes = new byte[charCount];
+            int byteCount = GetByteCount(input, charCount, null);
+            byte[] bytes = new byte[byteCount];
 
-            int bytesWritten;
             fixed (byte* output = &bytes[0]) 
             {
+                int bytesWritten;
                 int charactersConsumed;
                 // TODO: Replace with call to System.Text.Primitives/System/Text/Encoding/Utf8/Utf8Encoder
                 // TryEncode(ReadOnlySpan<char> utf16, Span<byte> utf8, out int charactersConsumed, out int bytesWritten)
                 if (!EncodingForwarder.TryEncode(input, charCount, output, charCount, out charactersConsumed, out bytesWritten)) 
                 {
-                    // Not all converted, get the byte count for the remaining encoded conversion
-                    remaining = GetByteCount(input + charactersConsumed, charCount - charactersConsumed, null);
+                    // Not all converted, use GetBytesFallback for remaining conversion
+                    bytesWritten += GetBytesFallback(input + charactersConsumed, charCount - charactersConsumed, output + bytesWritten, byteCount - bytesWritten, null);
                 }
-            }
-
-            if (remaining > 0) 
-            {
-                // Not all converted, use GetBytesFallback for remaining conversion
-                var encoded = ResizeGetRemainingBytes(input, charCount, ref bytes, bytesWritten, remaining);
-                Debug.Assert(encoded == remaining);
+                else
+                {
+                    Debug.Assert(charactersConsumed == charCount);
+                }
+                Debug.Assert(bytesWritten == byteCount);
             }
 
             return bytes;
         }
 
-        private unsafe int ResizeGetRemainingBytes(char* chars, int charCount, ref byte[] bytes, int alreadyEncoded, int remaining)
-        {
-            // Resize the array to the correct size
-            byte[] oldArray = bytes;
-            bytes = new byte[alreadyEncoded + remaining];
-            // Copy already encoded bytes
-            Array.Copy(oldArray, 0, bytes, 0, alreadyEncoded);
-
-            int encoded;
-            fixed (byte* output = &bytes[0]) 
-            {
-                // Not all converted, use GetBytesFallback for remaining conversion
-                encoded = GetBytesFallback(chars + alreadyEncoded, charCount - alreadyEncoded, output + alreadyEncoded, remaining, null);
-            }
-
-            return encoded;
-        }
-        
         // Encodes a range of characters in a character array into a range of bytes
         // in a byte array. An exception occurs if the byte array is not large
         // enough to hold the complete encoding of the characters. The

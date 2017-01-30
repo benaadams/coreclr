@@ -215,12 +215,13 @@ namespace System.Text
 
         private unsafe int ResizeGetRemainingBytes(char* chars, int charCount, ref byte[] bytes, int alreadyEncoded, int remaining)
         {
-            // Resize the array to the correct size
-            byte[] oldArray = bytes;
-            bytes = new byte[alreadyEncoded + remaining];
-            // Copy already encoded bytes
-            Array.Copy(oldArray, 0, bytes, 0, alreadyEncoded);
-
+            if (bytes.Length - remaining != alreadyEncoded) {
+                // Resize the array to the correct size
+                byte[] oldArray = bytes;
+                bytes = new byte[alreadyEncoded + remaining];
+                // Copy already encoded bytes
+                Array.Copy(oldArray, 0, bytes, 0, alreadyEncoded);
+            }
             int encoded;
             fixed (byte* output = &bytes[0]) 
             {
