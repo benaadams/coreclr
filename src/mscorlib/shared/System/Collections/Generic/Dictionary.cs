@@ -442,7 +442,7 @@ namespace System.Collections.Generic
             // If we hit the collision threshold we'll need to switch to the comparer which is using randomized string hashing
             // i.e. EqualityComparer<string>.Default.
 
-            if (collisionCount > HashHelpers.HashCollisionThreshold && _comparer is NonRandomizedStringEqualityComparer)
+            if (default(TKey) == null && collisionCount > HashHelpers.HashCollisionThreshold && _comparer is NonRandomizedStringEqualityComparer)
             {
                 _comparer = (IEqualityComparer<TKey>)EqualityComparer<string>.Default;
                 Resize(_entries.Length, true);
