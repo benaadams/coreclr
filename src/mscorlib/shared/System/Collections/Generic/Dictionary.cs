@@ -516,7 +516,8 @@ namespace System.Collections.Generic
             int count = _count;
             Array.Copy(_entries, 0, entries, 0, count);
 
-            if (forceNewHashCodes)
+            // Structs never rehash
+            if (default(TKey) == null && forceNewHashCodes)
             {
                 for (int i = 0; i < count; i++)
                 {
