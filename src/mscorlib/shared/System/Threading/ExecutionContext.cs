@@ -21,28 +21,6 @@ namespace System.Threading
 {
     public delegate void ContextCallback(Object state);
 
-    internal struct ExecutionContextSwitcher
-    {
-        internal ExecutionContext m_ec;
-        internal SynchronizationContext m_sc;
-
-        internal void Undo(Thread currentThread)
-        {
-            Debug.Assert(currentThread == Thread.CurrentThread);
-
-            // The common case is that these have not changed, so avoid the cost of a write if not needed.
-            if (currentThread.SynchronizationContext != m_sc)
-            {
-                currentThread.SynchronizationContext = m_sc;
-            }
-
-            if (currentThread.ExecutionContext != m_ec)
-            {
-                ExecutionContext.Restore(currentThread, m_ec);
-            }
-        }
-    }
-
     public sealed class ExecutionContext : IDisposable, ISerializable
     {
         internal static readonly ExecutionContext Default = new ExecutionContext();
@@ -130,96 +108,115 @@ namespace System.Threading
 
         public static void Run(ExecutionContext executionContext, ContextCallback callback, Object state)
         {
+            // Note: ExecutionContext.Run is an extremly hot function and used by every await, threadpool execution etc
             if (executionContext == null)
+            {
                 throw new InvalidOperationException(SR.InvalidOperation_NullContext);
+            }
 
             Thread currentThread = Thread.CurrentThread;
-            ExecutionContextSwitcher ecsw = default(ExecutionContextSwitcher);
-            try
+            // Capture references to Thread Contexts
+            ref ExecutionContext current = ref currentThread.ExecutionContext;
+            ref SynchronizationContext currentSyncCtx = ref currentThread.SynchronizationContext;
+
+            // Store current ExecutionContext and SynchronizationContext as "previous"
+            // This allows us to restore them and undo any Context changes made in callback.Invoke
+            // so that they won't "leak" back into caller.
+            ExecutionContext previous = current;
+            SynchronizationContext previousSyncCtx = currentSyncCtx;
+
+            if (executionContext == Default)
             {
-                EstablishCopyOnWriteScope(currentThread, ref ecsw);
-                ExecutionContext.Restore(currentThread, executionContext);
-                callback(state);
+                // Default is a null ExecutionContext internally
+                executionContext = null;
             }
-            catch
-            {
-                // Note: we have a "catch" rather than a "finally" because we want
-                // to stop the first pass of EH here.  That way we can restore the previous
-                // context before any of our callers' EH filters run.  That means we need to
-                // end the scope separately in the non-exceptional case below.
-                ecsw.Undo(currentThread);
-                throw;
-            }
-            ecsw.Undo(currentThread);
-        }
-
-        internal static void Restore(Thread currentThread, ExecutionContext executionContext)
-        {
-            Debug.Assert(currentThread == Thread.CurrentThread);
-
-            ExecutionContext previous = currentThread.ExecutionContext ?? Default;
-            currentThread.ExecutionContext = executionContext;
-
-            // New EC could be null if that's what ECS.Undo saved off.
-            // For the purposes of dealing with context change, treat this as the default EC
-            executionContext = executionContext ?? Default;
 
             if (previous != executionContext)
             {
-                OnContextChanged(previous, executionContext);
-            }
-        }
-
-        internal static void EstablishCopyOnWriteScope(Thread currentThread, ref ExecutionContextSwitcher ecsw)
-        {
-            Debug.Assert(currentThread == Thread.CurrentThread);
-
-            ecsw.m_ec = currentThread.ExecutionContext;
-            ecsw.m_sc = currentThread.SynchronizationContext;
-        }
-
-        private static void OnContextChanged(ExecutionContext previous, ExecutionContext current)
-        {
-            Debug.Assert(previous != null);
-            Debug.Assert(current != null);
-            Debug.Assert(previous != current);
-
-            foreach (IAsyncLocal local in previous.m_localChangeNotifications)
-            {
-                object previousValue;
-                object currentValue;
-                previous.m_localValues.TryGetValue(local, out previousValue);
-                current.m_localValues.TryGetValue(local, out currentValue);
-
-                if (previousValue != currentValue)
-                    local.OnValueChanged(previousValue, currentValue, true);
+                // Restore changed ExecutionContext
+                Restore(ref current, executionContext);
             }
 
-            if (current.m_localChangeNotifications != previous.m_localChangeNotifications)
+            ExceptionDispatchInfo edi = null;
+            try
             {
-                try
+                callback.Invoke(state);
+            }
+            catch (Exception ex)
+            {
+                // Note: we have a "catch" rather than a "finally" because we want
+                // to stop the first pass of EH here.  That way we can restore the previous
+                // context before any of our callers' EH filters run.
+                edi = ExceptionDispatchInfo.Capture(ex);
+            }
+
+            // The common case is that these have not changed, so avoid the cost of a write barrier if not needed.
+            if (currentSyncCtx != previousSyncCtx)
+            {
+                // Restore changed SynchronizationContext back to previous
+                currentSyncCtx = previousSyncCtx;
+            }
+
+            if (current != previous)
+            {
+                // Restore changed ExecutionContext back to previous
+                Restore(ref current, previous);
+            }
+
+            // If exception was thrown by callback, rethrow it now original contexts are restored
+            edi?.Throw();
+        }
+
+        internal static void Restore(ref ExecutionContext current, ExecutionContext next)
+        {
+            Debug.Assert(current != next);
+            // Capture current for change notification comparisions
+            ExecutionContext previous = current;
+            // Set current to next
+            current = next;
+
+            // Fire Change Notifications if any
+            try
+            {
+                if (previous != null)
                 {
-                    foreach (IAsyncLocal local in current.m_localChangeNotifications)
+                    foreach (IAsyncLocal local in previous.m_localChangeNotifications)
                     {
-                        // If the local has a value in the previous context, we already fired the event for that local
-                        // in the code above.
-                        object previousValue;
-                        if (!previous.m_localValues.TryGetValue(local, out previousValue))
-                        {
-                            object currentValue;
-                            current.m_localValues.TryGetValue(local, out currentValue);
+                        previous.m_localValues.TryGetValue(local, out object previousValue);
+                        object currentValue = null;
+                        next?.m_localValues.TryGetValue(local, out currentValue);
 
-                            if (previousValue != currentValue)
-                                local.OnValueChanged(previousValue, currentValue, true);
+                        if (previousValue != currentValue)
+                        {
+                            local.OnValueChanged(previousValue, currentValue, true);
                         }
                     }
                 }
-                catch (Exception ex)
+
+                if (next != null && next.m_localChangeNotifications != previous?.m_localChangeNotifications)
                 {
-                    Environment.FailFast(
-                        SR.ExecutionContext_ExceptionInAsyncLocalNotification,
-                        ex);
+                    foreach (IAsyncLocal local in next.m_localChangeNotifications)
+                    {
+                        // If the local has a value in the previous context, we already fired the event for that local
+                        // in the code above.
+                        object previousValue = null;
+                        if (previous == null || !previous.m_localValues.TryGetValue(local, out previousValue))
+                        {
+                            next.m_localValues.TryGetValue(local, out object currentValue);
+
+                            if (previousValue != currentValue)
+                            {
+                                local.OnValueChanged(previousValue, currentValue, true);
+                            }
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Environment.FailFast(
+                    SR.ExecutionContext_ExceptionInAsyncLocalNotification,
+                    ex);
             }
         }
 
@@ -227,34 +224,55 @@ namespace System.Threading
         {
             ExecutionContext current = Thread.CurrentThread.ExecutionContext;
             if (current == null)
+            {
                 return null;
+            }
 
-            object value;
-            current.m_localValues.TryGetValue(local, out value);
+            current.m_localValues.TryGetValue(local, out object value);
             return value;
         }
 
         internal static void SetLocalValue(IAsyncLocal local, object newValue, bool needChangeNotifications)
         {
-            ExecutionContext current = Thread.CurrentThread.ExecutionContext ?? ExecutionContext.Default;
+            ExecutionContext current = Thread.CurrentThread.ExecutionContext;
 
-            object previousValue;
-            bool hadPreviousValue = current.m_localValues.TryGetValue(local, out previousValue);
+            object previousValue = null;
+            bool hadPreviousValue = false;
+            bool isFlowSuppressed = false;
+            IAsyncLocal[] newChangeNotifications = null;
+            IAsyncLocalValueMap newValues;
+            if (current != null)
+            {
+                isFlowSuppressed = current.m_isFlowSuppressed;
+                hadPreviousValue = current.m_localValues.TryGetValue(local, out previousValue);
+                newValues = current.m_localValues;
+                newChangeNotifications = current.m_localChangeNotifications;
+            }
+            else
+            {
+                newValues = AsyncLocalValueMap.Empty;
+            }
 
             if (previousValue == newValue)
+            {
                 return;
+            }
 
-            IAsyncLocalValueMap newValues = current.m_localValues.Set(local, newValue);
+            newValues = newValues.Set(local, newValue);
 
             //
             // Either copy the change notification array, or create a new one, depending on whether we need to add a new item.
             //
-            IAsyncLocal[] newChangeNotifications = current.m_localChangeNotifications;
             if (needChangeNotifications)
             {
                 if (hadPreviousValue)
                 {
                     Debug.Assert(Array.IndexOf(newChangeNotifications, local) >= 0);
+                }
+                else if (newChangeNotifications == null)
+                {
+                    newChangeNotifications = new IAsyncLocal[1];
+                    newChangeNotifications[0] = local;
                 }
                 else
                 {
@@ -265,7 +283,7 @@ namespace System.Threading
             }
 
             Thread.CurrentThread.ExecutionContext =
-                new ExecutionContext(newValues, newChangeNotifications, current.m_isFlowSuppressed);
+                new ExecutionContext(newValues, newChangeNotifications, isFlowSuppressed);
 
             if (needChangeNotifications)
             {

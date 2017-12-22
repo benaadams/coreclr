@@ -277,17 +277,9 @@ namespace System.Threading
             StartInternal(ref stackMark);
         }
 
-        internal ExecutionContext ExecutionContext
-        {
-            get { return m_ExecutionContext; }
-            set { m_ExecutionContext = value; }
-        }
+        internal ref ExecutionContext ExecutionContext => ref m_ExecutionContext;
 
-        internal SynchronizationContext SynchronizationContext
-        {
-            get { return m_SynchronizationContext; }
-            set { m_SynchronizationContext = value; }
-        }
+        internal ref SynchronizationContext SynchronizationContext => ref m_SynchronizationContext;
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void StartInternal(ref StackCrawlMark stackMark);
