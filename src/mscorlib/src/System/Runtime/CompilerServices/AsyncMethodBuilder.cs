@@ -330,24 +330,19 @@ namespace System.Runtime.CompilerServices
             ExecutionContext previous = current;
             SynchronizationContext previousSyncCtx = currentSyncCtx;
 
-            try
+            // Async state machines are required not to throw, so no need for try/finally here.
+            stateMachine.MoveNext();
+            // The common case is that these have not changed, so avoid the cost of a write barrier if not needed.
+            if (previousSyncCtx != currentSyncCtx)
             {
-                stateMachine.MoveNext();
+                // Restore changed SynchronizationContext back to previous
+                currentSyncCtx = previousSyncCtx;
             }
-            finally
-            {
-                // The common case is that these have not changed, so avoid the cost of a write barrier if not needed.
-                if (previousSyncCtx != currentSyncCtx)
-                {
-                    // Restore changed SynchronizationContext back to previous
-                    currentSyncCtx = previousSyncCtx;
-                }
 
-                if (previous != current)
-                {
-                    // Restore changed ExecutionContext back to previous
-                    ExecutionContext.Restore(ref current, previous);
-                }
+            if (previous != current)
+            {
+                // Restore changed ExecutionContext back to previous
+                ExecutionContext.Restore(ref current, previous);
             }
         }
 
