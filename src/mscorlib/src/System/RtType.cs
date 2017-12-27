@@ -2455,26 +2455,38 @@ namespace System
             {
                 if (m_cache == IntPtr.Zero)
                 {
-                    IntPtr newgcHandle = new RuntimeTypeHandle(this).GetGCHandle(GCHandleType.WeakTrackResurrection);
-                    IntPtr gcHandle = Interlocked.CompareExchange(ref m_cache, newgcHandle, IntPtr.Zero);
-                    // Leak the handle if the type is collectible. It will be reclaimed when
-                    // the type goes away.
-                    if (gcHandle != IntPtr.Zero && !IsCollectible)
-                        GCHandle.InternalFree(newgcHandle);
+                    ResurrectCache();
                 }
 
-                RuntimeTypeCache cache = GCHandle.InternalGet(m_cache) as RuntimeTypeCache;
-                if (cache == null)
-                {
-                    cache = new RuntimeTypeCache(this);
-                    RuntimeTypeCache existingCache = GCHandle.InternalCompareExchange(m_cache, cache, null, false) as RuntimeTypeCache;
-                    if (existingCache != null)
-                        cache = existingCache;
-                }
+                RuntimeTypeCache cache = GCHandle.InternalGet(m_cache) as RuntimeTypeCache ?? CreateNewCache();
 
                 Debug.Assert(cache != null);
                 return cache;
             }
+        }
+
+        private void ResurrectCache()
+        {
+            IntPtr newgcHandle = new RuntimeTypeHandle(this).GetGCHandle(GCHandleType.WeakTrackResurrection);
+            IntPtr gcHandle = Interlocked.CompareExchange(ref m_cache, newgcHandle, IntPtr.Zero);
+            // Leak the handle if the type is collectible. It will be reclaimed when
+            // the type goes away.
+            if (gcHandle != IntPtr.Zero && !IsCollectible)
+            {
+                GCHandle.InternalFree(newgcHandle);
+            }
+        }
+
+        private RuntimeTypeCache CreateNewCache()
+        {
+            RuntimeTypeCache cache = new RuntimeTypeCache(this);
+            RuntimeTypeCache existingCache = GCHandle.InternalCompareExchange(m_cache, cache, null, false) as RuntimeTypeCache;
+            if (existingCache != null)
+            {
+                cache = existingCache;
+            }
+
+            return cache;
         }
 
         private string GetDefaultMemberName()
