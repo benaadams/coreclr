@@ -6,7 +6,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Internal.Runtime.CompilerServices;
 
 namespace System.Collections.Generic
 {
@@ -24,13 +23,13 @@ namespace System.Collections.Generic
     {
         private const int DefaultCapacity = 4;
 
-        private T[] _items; // Do not rename (binary serialization)
+        private InvariantArray<T> _items; // Do not rename (binary serialization)
         private int _size; // Do not rename (binary serialization)
         private int _version; // Do not rename (binary serialization)
         [NonSerialized]
         private object _syncRoot;
 
-        private static readonly T[] s_emptyArray = new T[0];
+        private static readonly InvariantArray<T> s_emptyArray = new InvariantArray<T>(0);
 
         // Constructs a List. The list is initially empty and has a capacity
         // of zero. Upon adding the first element to the list the capacity is
@@ -53,7 +52,7 @@ namespace System.Collections.Generic
             if (capacity == 0)
                 _items = s_emptyArray;
             else
-                _items = new T[capacity];
+                _items = new InvariantArray<T>(capacity);
         }
 
         // Constructs a List, copying the contents of the given collection. The
@@ -74,7 +73,7 @@ namespace System.Collections.Generic
                 }
                 else
                 {
-                    _items = new T[count];
+                    _items = new InvariantArray<T>(count);
                     c.CopyTo(_items, 0);
                     _size = count;
                 }
@@ -108,7 +107,7 @@ namespace System.Collections.Generic
                 {
                     if (value > 0)
                     {
-                        T[] newItems = new T[value];
+                        InvariantArray<T> newItems = new InvariantArray<T>(value);
                         if (_size > 0)
                         {
                             Array.Copy(_items, 0, newItems, 0, _size);
@@ -168,8 +167,7 @@ namespace System.Collections.Generic
                 {
                     ThrowHelper.ThrowArgumentOutOfRange_IndexException();
                 }
-
-                Unsafe.AsRef(in _items[index]) = value;
+                _items[index] = value;
                 _version++;
             }
         }
@@ -210,12 +208,12 @@ namespace System.Collections.Generic
         public void Add(T item)
         {
             _version++;
-            T[] array = _items;
+            InvariantArray<T> array = _items;
             int size = _size;
             if ((uint)size < (uint)array.Length)
             {
                 _size = size + 1;
-                Unsafe.AsRef(in array[size]) = item;
+                array[size] = item;
             }
             else
             {
@@ -353,7 +351,7 @@ namespace System.Collections.Generic
             List<TOutput> list = new List<TOutput>(_size);
             for (int i = 0; i < _size; i++)
             {
-                Unsafe.AsRef(in list._items[i]) = converter(_items[i]);
+                list._items[i] = converter(_items[i]);
             }
             list._size = _size;
             return list;
@@ -688,7 +686,7 @@ namespace System.Collections.Generic
             {
                 Array.Copy(_items, index, _items, index + 1, _size - index);
             }
-            Unsafe.AsRef(in _items[index]) = item;
+            _items[index] = item;
             _size++;
             _version++;
         }
@@ -890,7 +888,7 @@ namespace System.Collections.Generic
                 if (current < _size)
                 {
                     // copy item to the free slot.
-                    Unsafe.AsRef(in _items[freeIndex++]) = _items[current++];
+                    _items[freeIndex++] = _items[current++];
                 }
             }
 
@@ -920,7 +918,7 @@ namespace System.Collections.Generic
             }
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
-                Unsafe.AsRef(in _items[_size]) = default;
+                _items[_size] = default;
             }
             _version++;
         }
@@ -1112,7 +1110,7 @@ namespace System.Collections.Generic
                         EnsureCapacity(_size + 1);
                     }
 
-                    Unsafe.AsRef(in _items[_size++]) = current;
+                    _items[_size++] = current;
                 }
             }
         }
