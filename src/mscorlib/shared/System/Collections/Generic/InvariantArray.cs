@@ -25,10 +25,11 @@ namespace System.Collections.Generic
             _inner = new T[length];
         }
 
-        public ref T this[int index]
+        public T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Unsafe.AsRef(in _inner[index]);
+            get => _inner[index];
+            set => Unsafe.AsRef(in _inner[index]) = value;
         }
 
         public int Length
