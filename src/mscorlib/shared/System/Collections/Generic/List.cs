@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using System.Threading;
 
 namespace System.Collections.Generic
@@ -19,7 +20,7 @@ namespace System.Collections.Generic
     [DebuggerDisplay("Count = {Count}")]
     [Serializable]
     [TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
-    public class List<T> : IList<T>, IList, IReadOnlyList<T>
+    public class List<T> : IList<T>, IList, IReadOnlyList<T>, ISerializable, IDeserializationCallback
     {
         private const int DefaultCapacity = 4;
 
@@ -28,6 +29,11 @@ namespace System.Collections.Generic
         private int _version; // Do not rename (binary serialization)
         [NonSerialized]
         private object _syncRoot;
+
+        // constants for serialization
+        private const string ItemsName = "_items"; // Do not rename (binary serialization)
+        private const string SizeName = "_size"; // Do not rename (binary serialization)
+        private const string VersionName = "_version"; // Do not rename (binary serialization)
 
         private static readonly InvariantArray<T> s_emptyArray = new InvariantArray<T>(0);
 
@@ -84,6 +90,14 @@ namespace System.Collections.Generic
                 _items = s_emptyArray;
                 AddEnumerable(collection);
             }
+        }
+
+        protected List(SerializationInfo info, StreamingContext context)
+        {
+            // We can't do anything with the data until the entire graph has been deserialized
+            // and we have a resonable estimate that GetHashCode is not going to fail.  For the time being,
+            // we'll just cache this.  The graph is not valid until OnDeserialization has been called.
+            HashHelpers.SerializationInfoTable.Add(this, info);
         }
 
         // Gets and sets the capacity of this list.  The capacity is the size of
@@ -1113,6 +1127,55 @@ namespace System.Collections.Generic
                     _items[_size++] = current;
                 }
             }
+        }
+
+        void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            if (info == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.info);
+            }
+
+            var array = new T[Count];
+            CopyTo(array, 0);
+            info.AddValue(ItemsName, array, typeof(T[]));
+            info.AddValue(SizeName, _size);
+            info.AddValue(VersionName, _version);
+        }
+
+        void IDeserializationCallback.OnDeserialization(object sender)
+        {
+            HashHelpers.SerializationInfoTable.TryGetValue(this, out SerializationInfo siInfo);
+
+            if (siInfo == null)
+            {
+                // We can return immediately if this function is called twice. 
+                // Note we remove the serialization info from the table at the end of this method.
+                return;
+            }
+
+            int version = siInfo.GetInt32(VersionName);
+            int size = siInfo.GetInt32(SizeName);
+
+            if (size != 0)
+            {
+                T[] array = (T[])siInfo.GetValue(ItemsName, typeof(T[]));
+
+                if (array == null)
+                {
+                    ThrowHelper.ThrowSerializationException(ExceptionResource.Serialization_InvalidOnDeser);
+                }
+
+                _items = new InvariantArray<T>(array);
+            }
+            else
+            {
+                _items = s_emptyArray;
+            }
+
+            _size = size;
+            _version = version;
+            HashHelpers.SerializationInfoTable.Remove(this);
         }
 
         public struct Enumerator : IEnumerator<T>, IEnumerator

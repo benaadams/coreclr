@@ -11,6 +11,14 @@ namespace System.Collections.Generic
     {
         private T[] _inner;
 
+        public InvariantArray(T[] array)
+        {
+            if (default(T) == null && array.GetType() != typeof(T[]))
+                ThrowHelper.ThrowArrayTypeMismatchException();
+
+            _inner = array;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public InvariantArray(int length)
         {
