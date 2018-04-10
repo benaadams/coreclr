@@ -83,6 +83,8 @@ void Compiler::lvaInit()
     lvaCurEpoch = 0;
 
     structPromotionHelper = new (this, CMK_Generic) StructPromotionHelper(this);
+
+    lvaEnregEHVars = ((opts.compFlags & CLFLG_REGVAR) != 0);
 }
 
 /*****************************************************************************/
@@ -2371,6 +2373,40 @@ void Compiler::lvaSetVarAddrExposed(unsigned varNum)
     }
 
     lvaSetVarDoNotEnregister(varNum DEBUGARG(DNER_AddrExposed));
+}
+
+// lvaSetVarLiveInOutOfHandler: Set the local varNum as being live in and/or out of a handler
+//
+// Arguments:
+//    varNum - the varNum of the local
+//
+void Compiler::lvaSetVarLiveInOutOfHandler(unsigned varNum)
+{
+    noway_assert(varNum < lvaCount);
+
+    LclVarDsc* varDsc = &lvaTable[varNum];
+
+    varDsc->lvLiveInOutOfHndlr = 1;
+
+    if (varDsc->lvPromoted)
+    {
+        noway_assert(varTypeIsStruct(varDsc));
+
+        for (unsigned i = varDsc->lvFieldLclStart; i < varDsc->lvFieldLclStart + varDsc->lvFieldCnt; ++i)
+        {
+            noway_assert(lvaTable[i].lvIsStructField);
+            lvaTable[i].lvLiveInOutOfHndlr = 1; // Make field local as address-exposed.
+            if (!lvaEnregEHVars)
+            {
+                lvaSetVarDoNotEnregister(i DEBUGARG(DNER_LiveInOutOfHandler));
+            }
+        }
+    }
+
+    if (!lvaEnregEHVars)
+    {
+        lvaSetVarDoNotEnregister(varNum DEBUGARG(DNER_LiveInOutOfHandler));
+    }
 }
 
 /*****************************************************************************
