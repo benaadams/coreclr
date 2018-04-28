@@ -633,6 +633,8 @@ void GenTree::DumpNodeSizes(FILE* fp)
             fprintf(fp, "\n");
         }
     }
+
+#endif
 }
 
 #endif // MEASURE_NODE_SIZE

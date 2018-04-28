@@ -45,10 +45,10 @@ private:
     void BuildConnGraph(BitVec** pConnGraphPointees);
     static void ComputeReachableNodes(BitVecTraits* bitVecTraits, BitVec* adjacentNodes, BitVec& reachableNodes);
     void       MorphAllocObjNodes();
-    GenTreePtr MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* allocObj);
-    GenTreePtr MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, GenTreeStmt* stmt);
-    static bool CanLclVarEscapeViaParentStack(ArrayStack<GenTreePtr>* parentStack, Compiler* compiler);
-    static Compiler::fgWalkResult BuildConnGraphVisitor(GenTreePtr* pTree, Compiler::fgWalkData* data);
+    GenTree* MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* allocObj);
+    GenTree* MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, GenTreeStmt* stmt);
+    static bool CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack, Compiler* compiler);
+    static Compiler::fgWalkResult BuildConnGraphVisitor(GenTree** pTree, Compiler::fgWalkData* data);
     struct BuildConnGraphVisitorCallbackData;
 #ifdef DEBUG
     static Compiler::fgWalkResult AssertWhenAllocObjFoundVisitor(GenTree** pTree, Compiler::fgWalkData* data);

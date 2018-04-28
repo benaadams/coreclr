@@ -148,7 +148,7 @@ void ObjectAllocator::ComputeReachableNodes(BitVecTraits* bitVecTraits, BitVec* 
         BitVecOps::Iter iterator(bitVecTraits, pointers);
         doOneMoreIteration = false;
 
-        while (iterator.NextElem(bitVecTraits, &lclNum))
+        while (iterator.NextElem(&lclNum))
         {
             doOneMoreIteration = true;
 
@@ -319,12 +319,12 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
 
     unsigned int structSize = comp->lvaTable[lclNum].lvSize();
 
-    GenTreePtr tree;
+    GenTree* tree;
 
     //------------------------------------------------------------------------
     // *  GT_STMT  void  (top level)
     // |  /--*  GT_CNS_INT
-    // \--*  GT_INITBLK   void
+    // \--*  GT_BLK   void
     //    |  /--*  GT_CNS_INT     int    0
     //    \--*  <list>    void
     //       \--*  GT_ADDR      byref
@@ -333,17 +333,16 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
 
     tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
     tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
-    tree = comp->gtNewBlkOpNode(
-        GT_INITBLK,
-        tree,
+    tree = comp->gtNewBlkOpNode(tree,
         comp->gtNewIconNode(0),
-        comp->gtNewIconNode(structSize),
-        true);
+        structSize,
+        false,
+        false);
 
-    tree = comp->gtNewStmt(tree);
+    GenTreeStmt* newStmt = comp->gtNewStmt(tree);
 
-    comp->fgInsertStmtBefore(block, stmt, tree);
-    comp->fgMorphBlockStmt(block, tree DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
+    comp->fgInsertStmtBefore(block, stmt, newStmt);
+    comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
 
     //------------------------------------------------------------------------
     // *  GT_STMT   void
@@ -360,16 +359,16 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
     tree = comp->gtNewOperNode(GT_ADD, TYP_BYREF, tree, comp->gtNewIconNode(objHeaderSize));
 
-    GenTreePtr op1;
+    GenTree* op1;
 
     op1  = allocObj->gtGetOp1();
     tree = comp->gtNewOperNode(GT_IND, op1->TypeGet(), tree);
     tree = comp->gtNewAssignNode(tree, op1);
 
-    tree = comp->gtNewStmt(tree);
+    newStmt = comp->gtNewStmt(tree);
 
-    comp->fgInsertStmtBefore(block, stmt, tree);
-    comp->fgMorphBlockStmt(block, tree DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
+    comp->fgInsertStmtBefore(block, stmt, newStmt);
+    comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
 
     //------------------------------------------------------------------------
     // *  GT_STMT   void
@@ -397,22 +396,22 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     return allocObj;
 }
 
-Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTreePtr* pTree, Compiler::fgWalkData* data)
+Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, Compiler::fgWalkData* data)
 {
-    GenTreePtr tree = *pTree;
+    GenTree* tree = *pTree;
     assert(tree);
 
     if (tree->OperGet() == GT_LCL_VAR && (tree->TypeGet() == TYP_REF || tree->TypeGet() == TYP_I_IMPL))
     {
         Compiler* compiler                              = data->compiler;
-        GenTreePtr parent                               = data->parent;
+        GenTree* parent                               = data->parent;
         BuildConnGraphVisitorCallbackData* callbackData = reinterpret_cast<BuildConnGraphVisitorCallbackData*>(data->pCallbackData);
 
         unsigned int lclNum = tree->AsLclVar()->GetLclNum();
 
         if (parent->OperGet() == GT_ASG)
         {
-            GenTreePtr op1 = parent->AsOp()->gtGetOp1();
+            GenTree* op1 = parent->AsOp()->gtGetOp1();
 
             // We don't do any analysis when lclVar on the lhs of GT_ASG node
             // If there is another local variable on the rhs, eventually, we
@@ -454,7 +453,7 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTreePtr* pTree,
 
             if (parent->OperGet() == GT_ASG)
             {
-                GenTreePtr op1 = parent->AsOp()->gtGetOp1();
+                GenTree* op1 = parent->AsOp()->gtGetOp1();
 
                 if (op1->OperGet() == GT_LCL_VAR)
                 {
@@ -483,7 +482,7 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTreePtr* pTree,
 // Arguments:
 //    parentStack - 
 //    compiler    - 
-bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTreePtr>* parentStack, Compiler* compiler)
+bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack, Compiler* compiler)
 {
     assert(parentStack);
 
@@ -496,7 +495,7 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTreePtr>* pare
 
     bool canLclVarEscapeViaParentStack = true;
 
-    GenTreePtr ancestor;
+    GenTree* ancestor;
 
     if (parentStack->Height() > 1)
     {
@@ -554,7 +553,7 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTreePtr>* pare
 // Arguments:
 //    pTree - 
 //    data  - 
-Compiler::fgWalkResult ObjectAllocator::AssertWhenAllocObjFoundVisitor(GenTreePtr* pTree, Compiler::fgWalkData* data)
+Compiler::fgWalkResult ObjectAllocator::AssertWhenAllocObjFoundVisitor(GenTree** pTree, Compiler::fgWalkData* data)
 {
     GenTree* tree = *pTree;
 
