@@ -44,10 +44,12 @@ private:
     void DoAnalysis();
     void BuildConnGraph(BitVec** pConnGraphPointees);
     static void ComputeReachableNodes(BitVecTraits* bitVecTraits, BitVec* adjacentNodes, BitVec& reachableNodes);
-    void       MorphAllocObjNodes();
+    void     MorphAllocObjNodes();
     GenTree* MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* allocObj);
     GenTree* MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, GenTreeStmt* stmt);
-    static bool CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack, Compiler* compiler);
+    static bool CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack,
+                                              Compiler*             compiler,
+                                              unsigned int          lclNum);
     static Compiler::fgWalkResult BuildConnGraphVisitor(GenTree** pTree, Compiler::fgWalkData* data);
     struct BuildConnGraphVisitorCallbackData;
 #ifdef DEBUG
@@ -84,9 +86,10 @@ inline bool ObjectAllocator::CanAllocateLclVarOnStack(unsigned int lclNum, CORIN
 {
     assert(m_AnalysisDone);
 
-    const BOOL hasFinalizer      = comp->info.compCompHnd->classHasFinalizer(clsHnd);
-    const BOOL isValueClass      = comp->info.compCompHnd->isValueClass(clsHnd);
-    const unsigned int classSize = isValueClass ? comp->info.compCompHnd->getClassSize(clsHnd) : comp->info.compCompHnd->getHeapClassSize(clsHnd);
+    const BOOL         hasFinalizer = comp->info.compCompHnd->classHasFinalizer(clsHnd);
+    const BOOL         isValueClass = comp->info.compCompHnd->isValueClass(clsHnd);
+    const unsigned int classSize =
+        isValueClass ? comp->info.compCompHnd->getClassSize(clsHnd) : comp->info.compCompHnd->getHeapClassSize(clsHnd);
 
     return !CanLclVarEscape(lclNum) && !hasFinalizer && classSize <= s_StackAllocMaxSize;
 }

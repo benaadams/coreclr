@@ -26,14 +26,21 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 //    Runs only if Compiler::optMethodFlags has flag OMF_HAS_NEWOBJ set.
 void ObjectAllocator::DoPhase()
 {
+    JITDUMP("\n*** ObjectAllocationPhase: ");
     if ((comp->optMethodFlags & OMF_HAS_NEWOBJ) == 0)
     {
+        JITDUMP("no newobjs in this method; punting\n");
         return;
     }
 
     if (IsObjectStackAllocationEnabled())
     {
+        JITDUMP("enabled, analyzing...\n");
         DoAnalysis();
+    }
+    else
+    {
+        JITDUMP("disabled, punting\n");
     }
 
     MorphAllocObjNodes();
@@ -41,14 +48,19 @@ void ObjectAllocator::DoPhase()
 
 struct ObjectAllocator::BuildConnGraphVisitorCallbackData
 {
-    BuildConnGraphVisitorCallbackData(ObjectAllocator* caller, BitVec* connGraphPointees) :
-        m_caller(caller), m_connGraphPointees(connGraphPointees)
+    BuildConnGraphVisitorCallbackData(ObjectAllocator* caller, BitVec* connGraphPointees)
+        : m_caller(caller), m_connGraphPointees(connGraphPointees)
     {
     }
 
     void MarkLclVarAsNonStackAlloc(unsigned int lclNum)
     {
         BitVecOps::AddElemD(&m_caller->m_bitVecTraits, m_caller->m_EscapingPointers, lclNum);
+    }
+
+    bool IsLclVarNonStackAlloc(unsigned int lclNum)
+    {
+        return BitVecOps::IsMember(&m_caller->m_bitVecTraits, m_caller->m_EscapingPointers, lclNum);
     }
 
     void SetPointerPointeeRel(unsigned int pointerLclNum, unsigned int pointeeLclNum)
@@ -109,6 +121,7 @@ void ObjectAllocator::BuildConnGraph(BitVec** pConnGraphPointees)
 
             if (comp->lvaTable[lclNum].lvAddrExposed)
             {
+                JITDUMP("   V%02u is address exposed\n", lclNum);
                 callbackData.MarkLclVarAsNonStackAlloc(lclNum);
             }
         }
@@ -123,9 +136,7 @@ void ObjectAllocator::BuildConnGraph(BitVec** pConnGraphPointees)
 
     foreach_block(comp, block)
     {
-        for (GenTreeStmt* stmt = block->firstStmt();
-            stmt;
-            stmt = stmt->gtNextStmt)
+        for (GenTreeStmt* stmt = block->firstStmt(); stmt; stmt = stmt->gtNextStmt)
         {
             const bool lclVarsOnly  = false;
             const bool computeStack = true;
@@ -175,7 +186,7 @@ void ObjectAllocator::ComputeReachableNodes(BitVecTraits* bitVecTraits, BitVec* 
 void ObjectAllocator::MorphAllocObjNodes()
 {
     TarjanStronglyConnectedComponents tarjanScc(comp);
-    
+
     if (IsObjectStackAllocationEnabled())
     {
         tarjanScc.DoAnalysis();
@@ -228,24 +239,24 @@ void ObjectAllocator::MorphAllocObjNodes()
                 assert(op2 != nullptr);
                 assert(op2->OperGet() == GT_ALLOCOBJ);
 
-                GenTreeAllocObj* asAllocObj = op2->AsAllocObj();
-                unsigned int     lclNum     = op1->AsLclVar()->GetLclNum();
-                CORINFO_CLASS_HANDLE clsHnd = op2->AsAllocObj()->gtAllocObjClsHnd;
+                GenTreeAllocObj*     asAllocObj = op2->AsAllocObj();
+                unsigned int         lclNum     = op1->AsLclVar()->GetLclNum();
+                CORINFO_CLASS_HANDLE clsHnd     = op2->AsAllocObj()->gtAllocObjClsHnd;
 
-                if (IsObjectStackAllocationEnabled() && CanAllocateLclVarOnStack(lclNum, clsHnd)  && !tarjanScc.IsPartOfCycle(block->bbNum))
+                if (IsObjectStackAllocationEnabled() && CanAllocateLclVarOnStack(lclNum, clsHnd) &&
+                    !tarjanScc.IsPartOfCycle(block->bbNum))
                 {
-#if DEBUG
-                    if (comp->verbose)
-                    {
-                        printf("Allocating local variable %d on the stack in the class %s in the method %s\n", lclNum, comp->info.compClassName, comp->info.compMethodName);
-                    }
-#endif // DEBUG
-
+                    JITDUMP("Allocating local variable V%02u on the stack\n", lclNum);
                     op2 = MorphAllocObjNodeIntoStackAlloc(asAllocObj, block, stmt);
                     comp->optMethodFlags |= OMF_HAS_OBJSTACKALLOC;
                 }
                 else
                 {
+                    if (IsObjectStackAllocationEnabled())
+                    {
+                        JITDUMP("Allocating local variable V%02u on the heap\n", lclNum);
+                    }
+
                     op2 = MorphAllocObjNodeIntoHelperCall(asAllocObj);
                 }
 
@@ -314,7 +325,9 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
 
     unsigned int lclNum;
 
-    lclNum = comp->lvaGrabTemp(false DEBUGARG("MorphAllocObjNodeIntoStackAlloc temp")); // Lifetime of this local variable can be longer than one BB
+    lclNum = comp->lvaGrabTemp(false DEBUGARG("MorphAllocObjNodeIntoStackAlloc temp")); // Lifetime of this local
+                                                                                        // variable can be longer than
+                                                                                        // one BB
     comp->lvaSetStruct(lclNum, allocObj->gtAllocObjClsHnd, true);
 
     unsigned int structSize = comp->lvaTable[lclNum].lvSize();
@@ -333,11 +346,7 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
 
     tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
     tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
-    tree = comp->gtNewBlkOpNode(tree,
-        comp->gtNewIconNode(0),
-        structSize,
-        false,
-        false);
+    tree = comp->gtNewBlkOpNode(tree, comp->gtNewIconNode(0), structSize, false, false);
 
     GenTreeStmt* newStmt = comp->gtNewStmt(tree);
 
@@ -349,7 +358,7 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     // |  /--*  GT_CNS_INT  long
     // \--*  GT_ASG    long
     //    \--*  GT_IND     long
-    //       \--*  GT_ADDR      byref               
+    //       \--*  GT_ADDR      byref
     //          \--*  GT_LCL_VAR    struct(AX)
     //------------------------------------------------------------------------
 
@@ -378,19 +387,19 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     //    \--*  GT_LCL_VAR    ref
     //------------------------------------------------------------------------
 
-   /* allocObj->ChangeOper(GT_ADDR);
-    allocObj->gtType = TYP_I_IMPL;
+    /* allocObj->ChangeOper(GT_ADDR);
+     allocObj->gtType = TYP_I_IMPL;
 
-    tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
-    allocObj->gtOp1 = tree;*/
+     tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
+     allocObj->gtOp1 = tree;*/
     allocObj->ChangeOper(GT_ADD);
     allocObj->gtType = TYP_I_IMPL;
 
-    tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
-    tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
+    tree            = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
+    tree            = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
     allocObj->gtOp1 = tree;
 
-    tree = comp->gtNewIconNode(objHeaderSize);
+    tree                 = comp->gtNewIconNode(objHeaderSize);
     allocObj->gtOp.gtOp2 = tree;
 
     return allocObj;
@@ -403,9 +412,10 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, C
 
     if (tree->OperGet() == GT_LCL_VAR && (tree->TypeGet() == TYP_REF || tree->TypeGet() == TYP_I_IMPL))
     {
-        Compiler* compiler                              = data->compiler;
-        GenTree* parent                               = data->parent;
-        BuildConnGraphVisitorCallbackData* callbackData = reinterpret_cast<BuildConnGraphVisitorCallbackData*>(data->pCallbackData);
+        Compiler*                          compiler = data->compiler;
+        GenTree*                           parent   = data->parent;
+        BuildConnGraphVisitorCallbackData* callbackData =
+            reinterpret_cast<BuildConnGraphVisitorCallbackData*>(data->pCallbackData);
 
         unsigned int lclNum = tree->AsLclVar()->GetLclNum();
 
@@ -463,13 +473,21 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, C
                     callbackData->SetPointerPointeeRel(pointerLclNum, pointeeLclNum);
                 }
             }
-            else if (CanLclVarEscapeViaParentStack(data->parentStack, data->compiler))
+            else if (CanLclVarEscapeViaParentStack(data->parentStack, data->compiler, lclNum))
             {
+                if (!callbackData->IsLclVarNonStackAlloc(lclNum))
+                {
+                    JITDUMP("V%02u first escapes via [%06u]\n", lclNum, tree->gtTreeID);
+                }
                 callbackData->MarkLclVarAsNonStackAlloc(lclNum);
             }
         }
-        else if (CanLclVarEscapeViaParentStack(data->parentStack, data->compiler))
+        else if (CanLclVarEscapeViaParentStack(data->parentStack, data->compiler, lclNum))
         {
+            if (!callbackData->IsLclVarNonStackAlloc(lclNum))
+            {
+                JITDUMP("V%02u first escapes via [%06u]\n", lclNum, tree->gtTreeID);
+            }
             callbackData->MarkLclVarAsNonStackAlloc(lclNum);
         }
     }
@@ -480,9 +498,11 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, C
 // CanLclVarEscapeViaParentStack: TODO
 //
 // Arguments:
-//    parentStack - 
-//    compiler    - 
-bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack, Compiler* compiler)
+//    parentStack -
+//    compiler    -
+bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack,
+                                                    Compiler*             compiler,
+                                                    unsigned int          lclNum)
 {
     assert(parentStack);
 
@@ -491,6 +511,7 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
     //   1. When node.parent is any of the following nodes: GT_IND, GT_EQ, GT_NE
     //   2. When node.parent is GT_ADD and node.parent.parent is GT_IND
     //   3. When node.parent is GT_CALL to a pure helper
+    //   4. When node.parent is GT_CALL to delegate invoke and lcl is the this obj
     //--------------------------------------------------------------------------
 
     bool canLclVarEscapeViaParentStack = true;
@@ -503,30 +524,30 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
 
         switch (ancestor->OperGet())
         {
-        case GT_EQ:
-        case GT_NE:
-        case GT_IND:
-            canLclVarEscapeViaParentStack = false; // Scenario (1)
-            break;
+            case GT_EQ:
+            case GT_NE:
+            case GT_IND:
+                canLclVarEscapeViaParentStack = false; // Scenario (1)
+                break;
 
-        case GT_ADD:
-            if (parentStack->Height() > 2)
-            {
-                ancestor = parentStack->Index(2);
-
-                switch (ancestor->OperGet())
+            case GT_ADD:
+                if (parentStack->Height() > 2)
                 {
-                case GT_IND:
-                    canLclVarEscapeViaParentStack = false; // Scenario (2)
-                    break;
-                }
-            }
-            break;
+                    ancestor = parentStack->Index(2);
 
-        case GT_CALL:
+                    switch (ancestor->OperGet())
+                    {
+                        case GT_IND:
+                            canLclVarEscapeViaParentStack = false; // Scenario (2)
+                            break;
+                    }
+                }
+                break;
+
+            case GT_CALL:
             {
                 GenTreeCall* asCall = ancestor->AsCall();
-                
+
                 if (asCall->gtCallType == CT_HELPER)
                 {
                     const CorInfoHelpFunc helperNum = compiler->eeGetHelperNum(asCall->gtCallMethHnd);
@@ -534,6 +555,23 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
                     if (Compiler::s_helperCallProperties.IsPure(helperNum))
                     {
                         canLclVarEscapeViaParentStack = false; // Scenario (3)
+                    }
+                }
+                else if (asCall->gtCallType == CT_USER_FUNC)
+                {
+                    // Delegate invoke won't escape the delegate which is passed as "this"
+                    if ((asCall->gtCallMoreFlags & GTF_CALL_M_DELEGATE_INV) != 0)
+                    {
+                        GenTree* thisArg = compiler->gtGetThisArg(asCall);
+
+                        JITDUMP("... found Invoke (considering V%02u @ [%06u] with this [%06u])\n", lclNum,
+                                asCall->gtTreeID, thisArg->gtTreeID);
+                        DISPTREE(thisArg);
+
+                        if (thisArg->OperIs(GT_LCL_VAR) && (thisArg->AsLclVar()->GetLclNum() == lclNum))
+                        {
+                            canLclVarEscapeViaParentStack = false; // Scenario (4)
+                        }
                     }
                 }
             }
@@ -551,8 +589,8 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
 //                                 when found one.
 //
 // Arguments:
-//    pTree - 
-//    data  - 
+//    pTree -
+//    data  -
 Compiler::fgWalkResult ObjectAllocator::AssertWhenAllocObjFoundVisitor(GenTree** pTree, Compiler::fgWalkData* data)
 {
     GenTree* tree = *pTree;

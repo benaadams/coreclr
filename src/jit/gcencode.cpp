@@ -4314,7 +4314,7 @@ void GCInfo::gcMakeRegPtrTable(
                     offset += compiler->codeGen->genTotalFrameSize();
 #endif
                 GcSlotFlags flags = GC_SLOT_UNTRACKED;
-                
+
                 if ((compiler->optMethodFlags & OMF_HAS_OBJSTACKALLOC) != 0)
                 {
                     flags = (GcSlotFlags)(flags | GC_SLOT_INTERIOR);

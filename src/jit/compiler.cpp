@@ -4790,8 +4790,7 @@ void Compiler::compCompile(void** methodCodePtr, ULONG* methodCodeSize, JitFlags
     // local variable allocation on the stack.
     ObjectAllocator objectAllocator(this);
 
-    if (JitConfig.JitObjectStackAllocation() &&
-        !opts.MinOpts() && !opts.compDbgCode)
+    if (JitConfig.JitObjectStackAllocation() && !opts.MinOpts() && !opts.compDbgCode)
     {
         objectAllocator.EnableObjectStackAllocation();
     }
