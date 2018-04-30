@@ -414,6 +414,9 @@ void Compiler::lvaInitThisPtr(InitVarDscInfo* varDscInfo)
         {
             varDsc->lvType = TYP_REF;
             lvaSetClass(varDscInfo->varNum, info.compClassHnd);
+
+            // For generic methods 'this' is known to be non-null
+            varDsc->lvIsNonNull = (info.compFlags & CORINFO_FLG_SHAREDINST) != 0;
         }
 
         if (tiVerificationNeeded)
@@ -6874,6 +6877,10 @@ void Compiler::lvaDumpEntry(unsigned lclNum, FrameLayoutState curState, size_t r
     if (varDsc->lvClassIsExact)
     {
         printf(" exact");
+    }
+    if (varDsc->lvIsNonNull)
+    {
+        printf(" non-null");
     }
 #ifndef _TARGET_64BIT_
     if (varDsc->lvStructDoubleAlign)

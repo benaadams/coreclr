@@ -7156,6 +7156,11 @@ bool Compiler::fgAddrCouldBeNull(GenTree* addr)
         {
             return false;
         }
+
+        if (varDsc->lvIsNonNull)
+        {
+            return false;
+        }
     }
     else if (addr->gtOper == GT_ADDR)
     {
