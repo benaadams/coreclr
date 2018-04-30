@@ -2274,7 +2274,18 @@ void Compiler::lvaSetStruct(unsigned varNum, CORINFO_CLASS_HANDLE typeHnd, bool 
     }
     if (varDsc->lvExactSize == 0)
     {
-        varDsc->lvExactSize = info.compCompHnd->getClassSize(typeHnd);
+        BOOL isValueClass = info.compCompHnd->isValueClass(typeHnd);
+
+        if (isValueClass)
+        {
+            varDsc->lvExactSize      = info.compCompHnd->getClassSize(typeHnd);
+            varDsc->lvGcLayoutOffset = 0;
+        }
+        else
+        {
+            varDsc->lvExactSize = info.compCompHnd->getHeapClassSize(typeHnd) + info.compCompHnd->getObjHeaderSize();
+            varDsc->lvGcLayoutOffset = info.compCompHnd->getObjHeaderSize() + sizeof(LPVOID);
+        }
 
         size_t lvSize = varDsc->lvSize();
         assert((lvSize % TARGET_POINTER_SIZE) ==
@@ -2282,7 +2293,15 @@ void Compiler::lvaSetStruct(unsigned varNum, CORINFO_CLASS_HANDLE typeHnd, bool 
         varDsc->lvGcLayout = (BYTE*)compGetMem((lvSize / TARGET_POINTER_SIZE) * sizeof(BYTE), CMK_LvaTable);
         unsigned  numGCVars;
         var_types simdBaseType = TYP_UNKNOWN;
-        varDsc->lvType         = impNormStructType(typeHnd, varDsc->lvGcLayout, &numGCVars, &simdBaseType);
+
+        if (isValueClass)
+        {
+            varDsc->lvType = impNormStructType(typeHnd, varDsc->lvGcLayout, &numGCVars, &simdBaseType);
+        }
+        else
+        {
+            numGCVars = info.compCompHnd->getClassGClayout(typeHnd, varDsc->lvGcLayout);
+        }
 
         // We only save the count of GC vars in a struct up to 7.
         if (numGCVars >= 8)
@@ -2290,33 +2309,37 @@ void Compiler::lvaSetStruct(unsigned varNum, CORINFO_CLASS_HANDLE typeHnd, bool 
             numGCVars = 7;
         }
         varDsc->lvStructGcCount = numGCVars;
-#if FEATURE_SIMD
-        if (simdBaseType != TYP_UNKNOWN)
+
+        if (isValueClass)
         {
-            assert(varTypeIsSIMD(varDsc));
-            varDsc->lvSIMDType = true;
-            varDsc->lvBaseType = simdBaseType;
-        }
+#if FEATURE_SIMD
+            if (simdBaseType != TYP_UNKNOWN)
+            {
+                assert(varTypeIsSIMD(varDsc));
+                varDsc->lvSIMDType = true;
+                varDsc->lvBaseType = simdBaseType;
+            }
 #endif // FEATURE_SIMD
 #ifdef FEATURE_HFA
-        // for structs that are small enough, we check and set lvIsHfa and lvHfaTypeIsFloat
-        if (varDsc->lvExactSize <= MAX_PASS_MULTIREG_BYTES)
-        {
-            var_types hfaType = GetHfaType(typeHnd); // set to float or double if it is an HFA, otherwise TYP_UNDEF
-            if (varTypeIsFloating(hfaType))
+            // for structs that are small enough, we check and set lvIsHfa and lvHfaTypeIsFloat
+            if (varDsc->lvExactSize <= MAX_PASS_MULTIREG_BYTES)
             {
-                varDsc->_lvIsHfa = true;
-                varDsc->lvSetHfaTypeIsFloat(hfaType == TYP_FLOAT);
+                var_types hfaType = GetHfaType(typeHnd); // set to float or double if it is an HFA, otherwise TYP_UNDEF
+                if (varTypeIsFloating(hfaType))
+                {
+                    varDsc->_lvIsHfa = true;
+                    varDsc->lvSetHfaTypeIsFloat(hfaType == TYP_FLOAT);
 
-                // hfa variables can never contain GC pointers
-                assert(varDsc->lvStructGcCount == 0);
-                // The size of this struct should be evenly divisible by 4 or 8
-                assert((varDsc->lvExactSize % genTypeSize(hfaType)) == 0);
-                // The number of elements in the HFA should fit into our MAX_ARG_REG_COUNT limit
-                assert((varDsc->lvExactSize / genTypeSize(hfaType)) <= MAX_ARG_REG_COUNT);
+                    // hfa variables can never contain GC pointers
+                    assert(varDsc->lvStructGcCount == 0);
+                    // The size of this struct should be evenly divisible by 4 or 8
+                    assert((varDsc->lvExactSize % genTypeSize(hfaType)) == 0);
+                    // The number of elements in the HFA should fit into our MAX_ARG_REG_COUNT limit
+                    assert((varDsc->lvExactSize / genTypeSize(hfaType)) <= MAX_ARG_REG_COUNT);
+                }
             }
-        }
 #endif // FEATURE_HFA
+        }
     }
     else
     {
