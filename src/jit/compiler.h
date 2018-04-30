@@ -262,6 +262,8 @@ public:
 
     unsigned char lvIsTemp : 1; // Short-lifetime compiler temp (if lvIsParam is false), or implicit byref parameter
                                 // (if lvIsParam is true)
+
+    unsigned char lvIsNonNull : 1; // variable is TYP_REF and is known to always be non-null
 #if OPT_BOOL_OPS
     unsigned char lvIsBoolean : 1; // set if variable is boolean
 #endif

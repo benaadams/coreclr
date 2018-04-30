@@ -13271,6 +13271,29 @@ GenTree* Compiler::gtFoldExprSpecial(GenTree* tree)
                     }
                 }
             }
+            else if ((val == 0) && (op->TypeGet() == TYP_REF) && (op->OperGet() == GT_LCL_VAR))
+            {
+                // assert type is REF/BYREF?
+                const unsigned int lclNum = op->AsLclVar()->GetLclNum();
+                JITDUMP("\ngtFoldExprSpecial: trying null fold for V%02u", lclNum);
+
+                if (lvaTable[lclNum].lvIsNonNull)
+                {
+                    op = gtNewIconNode(oper != GT_EQ);
+
+                    if (fgGlobalMorph)
+                    {
+                        fgMorphTreeDone(op);
+                    }
+                    else
+                    {
+                        op->gtNext = tree->gtNext;
+                        op->gtPrev = tree->gtPrev;
+                    }
+
+                    return op;
+                }
+            }
 
             break;
 
@@ -17339,8 +17362,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* isExact, bo
             // For locals, pick up type info from the local table.
             const unsigned objLcl = obj->AsLclVar()->GetLclNum();
 
-            objClass = lvaTable[objLcl].lvClassHnd;
-            *isExact = lvaTable[objLcl].lvClassIsExact;
+            objClass   = lvaTable[objLcl].lvClassHnd;
+            *isExact   = lvaTable[objLcl].lvClassIsExact;
+            *isNonNull = lvaTable[objLcl].lvIsNonNull;
             break;
         }
 

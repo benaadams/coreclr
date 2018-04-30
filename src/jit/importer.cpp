@@ -13195,6 +13195,7 @@ void Compiler::impImportBlockCode(BasicBlock* block)
 
                     /* get a temporary for the new object */
                     lclNum = lvaGrabTemp(true DEBUGARG("NewObj constructor temp"));
+
                     if (compDonotInline())
                     {
                         // Fail fast if lvaGrabTemp fails with CALLSITE_TOO_MANY_LOCALS.
@@ -13310,6 +13311,9 @@ void Compiler::impImportBlockCode(BasicBlock* block)
 
                         impAssignTempGen(lclNum, op1, (unsigned)CHECK_SPILL_NONE);
                         lvaSetClass(lclNum, resolvedToken.hClass, true /* is Exact */);
+
+                        // The value of this new temp is never null.
+                        lvaTable[lclNum].lvIsNonNull = true;
 
                         newObjThisPtr = gtNewLclvNode(lclNum, TYP_REF);
                     }
