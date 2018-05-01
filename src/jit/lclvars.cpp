@@ -1471,7 +1471,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
 #if defined(FEATURE_SIMD)
 #if defined(_TARGET_XARCH_)
     // This will allow promotion of 2 Vector<T> fields on AVX2, or 4 Vector<T> fields on SSE2.
-    const int MaxOffset = MAX_NumOfFieldsInPromotableStruct * XMM_REGSIZE_BYTES;
+    const int MaxOffset = (MAX_NumOfFieldsInPromotableStruct + 2) * XMM_REGSIZE_BYTES;
 #elif defined(_TARGET_ARM64_)
     const int MaxOffset = MAX_NumOfFieldsInPromotableStruct * FP_REGSIZE_BYTES;
 #endif // defined(_TARGET_XARCH_) || defined(_TARGET_ARM64_)
@@ -1491,16 +1491,18 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
     StructPromotionInfo->typeHnd    = typeHnd;
     StructPromotionInfo->canPromote = false;
 
-    const unsigned structSize =
-        isValueClass ? info.compCompHnd->getClassSize(typeHnd) : info.compCompHnd->getHeapClassSize(typeHnd);
-    if (structSize > MaxOffset)
+    const DWORD    typeFlags  = info.compCompHnd->getClassAttribs(typeHnd);
+    const bool     isDelegate = (typeFlags & CORINFO_FLG_DELEGATE) != 0;
+    const unsigned structHeaderSize = isValueClass ? 0 : info.compCompHnd->getObjHeaderSize();
+    const unsigned structSize = isValueClass ? info.compCompHnd->getClassSize(typeHnd) : 
+        info.compCompHnd->getHeapClassSize(typeHnd) + structHeaderSize;
+
+    if ((structSize > MaxOffset) && !isDelegate)
     {
         JITDUMP("Type %s size %d > %d, too large to promote\n", eeGetClassName(typeHnd), structSize, MaxOffset);
         return; // struct is too large
     }
 
-    const DWORD    typeFlags  = info.compCompHnd->getClassAttribs(typeHnd);
-    const bool     isDelegate = (typeFlags & CORINFO_FLG_DELEGATE) != 0;
     const unsigned fieldCnt   = info.compCompHnd->getClassNumInstanceFields(typeHnd);
 
     if (fieldCnt == 0 || (fieldCnt > MAX_NumOfFieldsInPromotableStruct && !isDelegate))
@@ -1556,27 +1558,81 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
         isHole[i] = (i < structSize) ? true : false;
     }
 
-    for (BYTE ordinal = 0; ordinal < fieldCnt; ++ordinal)
+    CORINFO_CLASS_HANDLE currentTypeHnd = typeHnd;
+    CORINFO_CLASS_HANDLE parentTypeHnd = nullptr;
+    unsigned currentFieldCnt = fieldCnt;
+    unsigned parentFieldCnt = 0;
+
+    if (!isValueClass)
     {
+        parentTypeHnd = info.compCompHnd->getParentType(typeHnd);
+
+        if (parentTypeHnd != nullptr)
+        {
+            parentFieldCnt = info.compCompHnd->getClassNumInstanceFields(parentTypeHnd);
+            assert(currentFieldCnt >= parentFieldCnt);
+            currentFieldCnt -= parentFieldCnt;
+        }
+
+        JITDUMP("Type %s has %u fields of its own, and %u from parents\n", 
+            eeGetClassName(typeHnd), currentFieldCnt, parentFieldCnt);
+    }
+
+    for (BYTE ordinal = 0; (ordinal < currentFieldCnt) || (parentTypeHnd != nullptr); ++ordinal)
+    {
+        // Dive into parent classes for ref types
+        while ((ordinal == currentFieldCnt) && (parentTypeHnd != nullptr))
+        {
+            assert(!isValueClass);
+            currentTypeHnd = parentTypeHnd;
+            parentTypeHnd = info.compCompHnd->getParentType(currentTypeHnd);
+
+            if (parentTypeHnd != nullptr)
+            {
+                unsigned grandparentFieldCnt = info.compCompHnd->getClassNumInstanceFields(parentTypeHnd);
+                assert(parentFieldCnt >= grandparentFieldCnt);
+                currentFieldCnt += parentFieldCnt - grandparentFieldCnt;
+                JITDUMP("Parent type %s has %u fields of its own, and %u from its parents.\n", 
+                    eeGetClassName(currentTypeHnd), parentFieldCnt - grandparentFieldCnt, grandparentFieldCnt);
+                parentFieldCnt = grandparentFieldCnt;
+            }
+            else
+            {
+                // No more parents, this class should provide all the remaining fields.
+                // (handle ComObject lie someday)
+                JITDUMP("Parent type %s has %u fields of its own, and no parent.\n", 
+                    eeGetClassName(currentTypeHnd), parentFieldCnt);
+                currentFieldCnt += parentFieldCnt;
+                parentFieldCnt = 0;
+            }
+        }
+
+        if (ordinal == fieldCnt)
+        {
+            break;
+        }
+
         lvaStructFieldInfo* pFieldInfo = &StructPromotionInfo->fields[ordinal];
-        pFieldInfo->fldHnd             = info.compCompHnd->getFieldInClass(typeHnd, ordinal);
+        pFieldInfo->fldHnd             = info.compCompHnd->getFieldInClass(currentTypeHnd, ordinal);
 
         // We may hit this for ref class instances since # of fields reported above includes
         // all fields (even those in ancestor classes) but getFieldInClass only considers this
         // class's contributions.
         if (pFieldInfo->fldHnd == nullptr)
         {
-            JITDUMP("Type %s is missing field at ordinal %u\n", eeGetClassName(typeHnd), ordinal);
+            JITDUMP("Type %s is missing field at ordinal %u\n", eeGetClassName(currentTypeHnd), ordinal);
             return;
         }
 
+        // Because we are working outer to inner this doesn't need adjustment
         const unsigned fldOffset = info.compCompHnd->getFieldOffset(pFieldInfo->fldHnd);
 
         // The fldOffset value should never be larger than our structSize.
         if (fldOffset >= structSize)
         {
+            JITDUMP("Type %s has unexpectedly large field offset %u (size %u) for field %s, can't promote\n", 
+                eeGetClassName(currentTypeHnd), fldOffset, structSize, eeGetFieldName(pFieldInfo->fldHnd));
             noway_assert(false);
-            JITDUMP("Type %s has unexpected field offset, can't promote\n", eeGetClassName(typeHnd));
             return;
         }
 
@@ -1585,6 +1641,9 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
         CorInfoType corType    = info.compCompHnd->getFieldType(pFieldInfo->fldHnd, &pFieldInfo->fldTypeHnd);
         pFieldInfo->fldType    = JITtype2varType(corType);
         pFieldInfo->fldSize    = genTypeSize(pFieldInfo->fldType);
+
+        JITDUMP(" -- %u: Field %s type %s at offset %u\n", ordinal, eeGetFieldName(pFieldInfo->fldHnd), 
+            varTypeName(pFieldInfo->fldType), fldOffset);
 
 #ifdef FEATURE_SIMD
         // Check to see if this is a SIMD type.
@@ -1610,7 +1669,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             // fields of TYP_BLK, TYP_FUNC or TYP_VOID.
             if (pFieldInfo->fldType != TYP_STRUCT)
             {
-                JITDUMP("Type %s has unexpected zero sized field can't promote\n", eeGetClassName(typeHnd));
+                JITDUMP("Type %s has unexpected zero sized field can't promote\n", eeGetClassName(currentTypeHnd));
                 return;
             }
 
@@ -1621,7 +1680,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             // Do Not promote if the struct field in turn has more than one field.
             if (info.compCompHnd->getClassNumInstanceFields(pFieldInfo->fldTypeHnd) != 1)
             {
-                JITDUMP("Type %s non-primitive struct field, can't promote\n", eeGetClassName(typeHnd));
+                JITDUMP("Type %s non-primitive struct field, can't promote\n", eeGetClassName(currentTypeHnd));
                 return;
             }
 
@@ -1631,7 +1690,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             unsigned             fOffset = info.compCompHnd->getFieldOffset(fHnd);
             if (fOffset != 0)
             {
-                JITDUMP("Type %s primitive struct field not at offset zero, can't promote\n", eeGetClassName(typeHnd));
+                JITDUMP("Type %s primitive struct field not at offset zero, can't promote\n", eeGetClassName(currentTypeHnd));
                 return;
             }
 
@@ -1655,7 +1714,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             // natural boundary.
             if (fieldSize == 0 || fieldSize != TARGET_POINTER_SIZE || varTypeIsFloating(fieldVarType))
             {
-                JITDUMP("Type %s float field, can't promote\n", eeGetClassName(typeHnd));
+                JITDUMP("Type %s float field, can't promote\n", eeGetClassName(currentTypeHnd));
                 return;
             }
 
@@ -1669,7 +1728,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             // The code in Compiler::genPushArgList that reconstitutes
             // struct values on the stack from promoted fields expects
             // those fields to be at their natural alignment.
-            JITDUMP("Type %s field not aligned, can't promote\n", eeGetClassName(typeHnd));
+            JITDUMP("Type %s field not aligned, can't promote\n", eeGetClassName(currentTypeHnd));
             return;
         }
 
@@ -1693,7 +1752,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
         if (pFieldInfo->fldSize > structAlignment)
         {
             // Don't promote vars whose struct types violates the invariant.  (Alignment == size for primitives.)
-            JITDUMP("Type %s field not aligned for arm, can't promote\n", eeGetClassName(typeHnd));
+            JITDUMP("Type %s field not aligned for arm, can't promote\n", eeGetClassName(currentTypeHnd));
             return;
         }
         // If we have any small fields we will allocate a single PromotedStructScratch local var for the method.
@@ -1857,7 +1916,10 @@ bool Compiler::lvaShouldPromoteStructVar(unsigned lclNum, lvaStructPromotionInfo
     // passed as a parameter or assigned the return value of a call. Because once promoted,
     // struct copying is done by field by field assignment instead of a more efficient
     // rep.stos or xmm reg based copy.
-    if (structPromotionInfo->fieldCnt > 3 && !varDsc->lvFieldAccessed)
+
+    const DWORD    typeFlags  = info.compCompHnd->getClassAttribs(structPromotionInfo->typeHnd);
+    const bool     isDelegate = (typeFlags & CORINFO_FLG_DELEGATE) != 0;
+    if (structPromotionInfo->fieldCnt > 3 && !isDelegate && !varDsc->lvFieldAccessed)
     {
         JITDUMP("Not promoting promotable struct local V%02u: #fields = %d, fieldAccessed = %d.\n", lclNum,
                 structPromotionInfo->fieldCnt, varDsc->lvFieldAccessed);
@@ -6962,9 +7024,18 @@ void Compiler::lvaDumpEntry(unsigned lclNum, FrameLayoutState curState, size_t r
 #endif // !defined(_TARGET_64BIT_)
         {
             CORINFO_CLASS_HANDLE typeHnd = parentvarDsc->lvVerTypeInfo.GetClassHandle();
-            CORINFO_FIELD_HANDLE fldHnd  = info.compCompHnd->getFieldInClass(typeHnd, varDsc->lvFldOrdinal);
+            CORINFO_FIELD_HANDLE fldHnd  = nullptr;
 
-            printf(" V%02u.%s(offs=0x%02x)", varDsc->lvParentLcl, eeGetFieldName(fldHnd), varDsc->lvFldOffset);
+            if (eeIsValueClass(typeHnd))
+            {
+                fldHnd = info.compCompHnd->getFieldInClass(typeHnd, varDsc->lvFldOrdinal);
+            }
+            else
+            {
+                // Todo -- the more complex logic to find the nth field of a ref class
+            }
+
+            printf(" V%02u.%s(offs=0x%02x)", varDsc->lvParentLcl, fldHnd == nullptr ? "??" : eeGetFieldName(fldHnd), varDsc->lvFldOffset);
 
             lvaPromotionType promotionType = lvaGetPromotionType(parentvarDsc);
             // We should never have lvIsStructField set if it is a reg-sized non-field-addressed struct.

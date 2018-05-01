@@ -11219,8 +11219,16 @@ void Compiler::gtDispLeaf(GenTree* tree, IndentStack* indentStack)
                         else
 #endif // !defined(_TARGET_64BIT_)
                         {
-                            fldHnd    = info.compCompHnd->getFieldInClass(typeHnd, fieldVarDsc->lvFldOrdinal);
-                            fieldName = eeGetFieldName(fldHnd);
+                            if (eeIsValueClass(typeHnd))
+                            {
+                                fldHnd = info.compCompHnd->getFieldInClass(typeHnd, varDsc->lvFldOrdinal);
+                                fieldName = eeGetFieldName(fldHnd);
+                            }
+                            else
+                            {
+                                // Todo -- the more complex logic to find the nth field of a ref class
+                                fieldName = "??";
+                            }
                         }
 
                         printf("\n");
