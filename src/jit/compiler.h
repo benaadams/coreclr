@@ -2785,7 +2785,7 @@ public:
         bool                 containsHoles;
         bool                 customLayout;
         unsigned char        fieldCnt;
-        lvaStructFieldInfo   fields[MAX_NumOfFieldsInPromotableStruct];
+        lvaStructFieldInfo   fields[MAX_NumOfFieldsInPromotableStruct + 2];
 
         lvaStructPromotionInfo()
             : typeHnd(nullptr), canPromote(false), requiresScratchVar(false), containsHoles(false), customLayout(false)
@@ -4872,7 +4872,7 @@ private:
 
     GenTree* fgMorphCastIntoHelper(GenTree* tree, int helper, GenTree* oper);
 
-    GenTree* fgMorphIntoHelperCall(GenTree* tree, int helper, GenTreeArgList* args);
+    GenTree* fgMorphIntoHelperCall(GenTree* tree, int helper, GenTreeArgList* args, bool morphResult = true);
 
     GenTree* fgMorphStackArgForVarArgs(unsigned lclNum, var_types varType, unsigned lclOffs);
 

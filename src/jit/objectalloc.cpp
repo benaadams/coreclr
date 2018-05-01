@@ -83,7 +83,7 @@ private:
 void ObjectAllocator::DoAnalysis()
 {
     assert(m_IsObjectStackAllocationEnabled);
-    assert(comp->fgDomsComputed);
+    // assert(comp->fgDomsComputed);
     assert(!m_AnalysisDone);
 
     if (comp->lvaCount > 0)
@@ -260,7 +260,10 @@ void ObjectAllocator::MorphAllocObjNodes()
                     op2 = MorphAllocObjNodeIntoHelperCall(asAllocObj);
                 }
 
-                comp->fgMorphBlockStmt(block, stmt DEBUGARG("MorphAllocObjNodes"));
+                if (IsRunningAfterMorph())
+                {
+                    comp->fgMorphBlockStmt(block, stmt DEBUGARG("MorphAllocObjNodes"));
+                }
 
                 // Propagate flags of op2 to its parent.
                 stmtExpr->gtOp.gtOp2 = op2;
@@ -297,7 +300,8 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* alloc
 
     GenTree* op1 = allocObj->gtGetOp1();
 
-    GenTree* helperCall = comp->fgMorphIntoHelperCall(allocObj, allocObj->gtNewHelper, comp->gtNewArgList(op1));
+    GenTree* helperCall =
+        comp->fgMorphIntoHelperCall(allocObj, allocObj->gtNewHelper, comp->gtNewArgList(op1), IsRunningAfterMorph());
 
     return helperCall;
 }
@@ -350,7 +354,10 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     GenTreeStmt* newStmt = comp->gtNewStmt(tree);
 
     comp->fgInsertStmtBefore(block, stmt, newStmt);
-    comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
+    if (IsRunningAfterMorph())
+    {
+        comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
+    }
 
     //------------------------------------------------------------------------
     // *  GT_STMT   void
@@ -376,7 +383,11 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     newStmt = comp->gtNewStmt(tree);
 
     comp->fgInsertStmtBefore(block, stmt, newStmt);
-    comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
+
+    if (IsRunningAfterMorph())
+    {
+        comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
+    }
 
     //------------------------------------------------------------------------
     // *  GT_STMT   void
@@ -454,7 +465,7 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, C
                     //------------------------------------------------------------------------
                     if (!callbackData->IsLclVarNonStackAlloc(lclNum))
                     {
-                        JITDUMP("V%02u first escapes via [%06u]\n", lclNum, tree->gtTreeID);
+                        JITDUMP("V%02u first escapes (1) via [%06u]\n", lclNum, tree->gtTreeID);
                     }
                     callbackData->MarkLclVarAsNonStackAlloc(lclNum);
                 }
@@ -480,7 +491,7 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, C
             {
                 if (!callbackData->IsLclVarNonStackAlloc(lclNum))
                 {
-                    JITDUMP("V%02u first escapes via [%06u]\n", lclNum, tree->gtTreeID);
+                    JITDUMP("V%02u first escapes (2) via [%06u]\n", lclNum, tree->gtTreeID);
                 }
                 callbackData->MarkLclVarAsNonStackAlloc(lclNum);
             }
@@ -489,7 +500,7 @@ Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, C
         {
             if (!callbackData->IsLclVarNonStackAlloc(lclNum))
             {
-                JITDUMP("V%02u first escapes via [%06u]\n", lclNum, tree->gtTreeID);
+                JITDUMP("V%02u first escapes (3) via [%06u]\n", lclNum, tree->gtTreeID);
             }
             callbackData->MarkLclVarAsNonStackAlloc(lclNum);
         }
@@ -515,17 +526,16 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
     //   2. When node.parent is GT_ADD and node.parent.parent is GT_IND
     //   3. When node.parent is GT_CALL to a pure helper
     //   4. When node.parent is GT_CALL to delegate invoke and lcl is the this obj
+    //   5. When node.parent is GT_FIELD on RHS of a GT_ASG
     //--------------------------------------------------------------------------
 
     bool canLclVarEscapeViaParentStack = true;
 
-    GenTree* ancestor;
-
     if (parentStack->Height() > 1)
     {
-        ancestor = parentStack->Index(1);
+        GenTree* parent = parentStack->Index(1);
 
-        switch (ancestor->OperGet())
+        switch (parent->OperGet())
         {
             case GT_EQ:
             case GT_NE:
@@ -533,12 +543,21 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
                 canLclVarEscapeViaParentStack = false; // Scenario (1)
                 break;
 
+            case GT_FIELD:
+                if (parentStack->Height() > 2)
+                {
+                    GenTree* grandParent = parentStack->Index(2);
+                    JITDUMP("GT_FIELD grandparent is [%06u]\n", grandParent->gtTreeID);
+                    canLclVarEscapeViaParentStack = (grandParent->OperGet() == GT_ADDR);
+                }
+                break;
+
             case GT_ADD:
                 if (parentStack->Height() > 2)
                 {
-                    ancestor = parentStack->Index(2);
+                    GenTree* grandParent = parentStack->Index(2);
 
-                    switch (ancestor->OperGet())
+                    switch (grandParent->OperGet())
                     {
                         case GT_IND:
                             canLclVarEscapeViaParentStack = false; // Scenario (2)
@@ -549,7 +568,7 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
 
             case GT_CALL:
             {
-                GenTreeCall* asCall = ancestor->AsCall();
+                GenTreeCall* asCall = parent->AsCall();
 
                 if (asCall->gtCallType == CT_HELPER)
                 {

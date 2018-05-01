@@ -4786,17 +4786,6 @@ void Compiler::compCompile(void** methodCodePtr, ULONG* methodCodeSize, JitFlags
         EndPhase(PHASE_COMPUTE_REACHABILITY);
     }
 
-    // Transform each GT_ALLOCOBJ node into either an allocation helper call or
-    // local variable allocation on the stack.
-    ObjectAllocator objectAllocator(this);
-
-    if (JitConfig.JitObjectStackAllocation() && !opts.MinOpts() && !opts.compDbgCode)
-    {
-        objectAllocator.EnableObjectStackAllocation();
-    }
-
-    objectAllocator.Run();
-
     if (!opts.MinOpts() && !opts.compDbgCode)
     {
         /*  Perform loop inversion (i.e. transform "while" loops into

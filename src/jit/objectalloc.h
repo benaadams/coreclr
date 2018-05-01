@@ -25,15 +25,17 @@ class ObjectAllocator final : public Phase
     // Data members
     bool         m_IsObjectStackAllocationEnabled;
     bool         m_AnalysisDone;
+    bool         m_IsRunningAfterMorph;
     BitVecTraits m_bitVecTraits;
     BitVec       m_EscapingPointers;
 
     //===============================================================================
     // Methods
 public:
-    ObjectAllocator(Compiler* comp);
+    ObjectAllocator(Compiler* comp, bool isAfterMorph = true);
     bool IsObjectStackAllocationEnabled() const;
     void EnableObjectStackAllocation();
+    bool IsRunningAfterMorph() const;
 
 protected:
     virtual void DoPhase() override;
@@ -60,13 +62,15 @@ private:
 
 //===============================================================================
 
-inline ObjectAllocator::ObjectAllocator(Compiler* comp)
+inline ObjectAllocator::ObjectAllocator(Compiler* comp, bool isAfterMorph)
     : Phase(comp, "Allocate Objects", PHASE_ALLOCATE_OBJECTS)
     , m_IsObjectStackAllocationEnabled(false)
     , m_AnalysisDone(false)
+    , m_IsRunningAfterMorph(isAfterMorph)
     , m_bitVecTraits(comp->lvaCount, comp)
 {
     m_EscapingPointers = BitVecOps::UninitVal();
+    m_doChecks         = isAfterMorph;
 }
 
 inline bool ObjectAllocator::IsObjectStackAllocationEnabled() const
@@ -77,6 +81,11 @@ inline bool ObjectAllocator::IsObjectStackAllocationEnabled() const
 inline void ObjectAllocator::EnableObjectStackAllocation()
 {
     m_IsObjectStackAllocationEnabled = true;
+}
+
+inline bool ObjectAllocator::IsRunningAfterMorph() const
+{
+    return m_IsRunningAfterMorph;
 }
 
 //------------------------------------------------------------------------
