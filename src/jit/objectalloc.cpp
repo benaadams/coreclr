@@ -363,22 +363,17 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     // *  GT_STMT   void
     // |  /--*  GT_CNS_INT  long
     // \--*  GT_ASG    long
-    //    \--*  GT_IND     long
-    //       \--*  GT_ADDR      byref
-    //          \--*  GT_LCL_VAR    struct(AX)
+    //    \--*  GT_FIELD     long  [+0]
+    //          \--*  GT_ADDR
+    //              \--*  GT_LCL_VAR  lclNum
     //------------------------------------------------------------------------
 
     const unsigned objHeaderSize = comp->info.compCompHnd->getObjHeaderSize();
 
     tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
     tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
-    tree = comp->gtNewOperNode(GT_ADD, TYP_BYREF, tree, comp->gtNewIconNode(objHeaderSize));
-
-    GenTree* op1;
-
-    op1  = allocObj->gtGetOp1();
-    tree = comp->gtNewOperNode(GT_IND, op1->TypeGet(), tree);
-    tree = comp->gtNewAssignNode(tree, op1);
+    tree = comp->gtNewFieldRef(TYP_I_IMPL, nullptr, tree, objHeaderSize);
+    tree = comp->gtNewAssignNode(tree, allocObj->gtGetOp1());
 
     newStmt = comp->gtNewStmt(tree);
 

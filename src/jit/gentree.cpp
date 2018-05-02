@@ -11811,7 +11811,14 @@ void Compiler::gtDispTree(GenTree*     tree,
     switch (tree->gtOper)
     {
         case GT_FIELD:
-            printf(" %s", eeGetFieldName(tree->gtField.gtFldHnd), 0);
+            if (tree->gtField.gtFldHnd != nullptr)
+            {
+                printf(" %s", eeGetFieldName(tree->gtField.gtFldHnd), 0);
+            }
+            else
+            {
+                printf(" @field:0x%x", tree->gtField.gtFldOffset);
+            }
 
             if (tree->gtField.gtFldObj && !topOnly)
             {
