@@ -11221,7 +11221,7 @@ void Compiler::gtDispLeaf(GenTree* tree, IndentStack* indentStack)
                         {
                             if (eeIsValueClass(typeHnd))
                             {
-                                fldHnd = info.compCompHnd->getFieldInClass(typeHnd, varDsc->lvFldOrdinal);
+                                fldHnd    = info.compCompHnd->getFieldInClass(typeHnd, varDsc->lvFldOrdinal);
                                 fieldName = eeGetFieldName(fldHnd);
                             }
                             else
@@ -17405,7 +17405,7 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* isExact, bo
         case GT_CALL:
         {
             GenTreeCall* call = tree->AsCall();
-            if (call->IsInlineCandidate())
+            if (call->IsInlineCandidate() && !call->IsDelegateInvoke())
             {
                 // For inline candidates, we've already cached the return
                 // type class handle in the inline info.

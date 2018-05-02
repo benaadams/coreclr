@@ -4494,6 +4494,7 @@ GenTreeCall* Compiler::fgMorphArgs(GenTreeCall* call)
     if (call->gtCallType == CT_INDIRECT)
     {
         call->gtCallAddr = fgMorphTree(call->gtCallAddr);
+        flagsSummary |= call->gtCallAddr->gtFlags;
     }
 
     call->fgArgInfo->RecordStkLevel(fgPtrArgCntCur);
@@ -7234,6 +7235,14 @@ void Compiler::fgMorphCallInlineHelper(GenTreeCall* call, InlineResult* result)
         return;
     }
 
+    // Inline delegate invoke specially...
+    if (call->IsDelegateInvoke())
+    {
+        fgInlineDelegateInvoke(call);
+        result->NoteFatal(InlineObservation::CALLSITE_IS_NOT_DIRECT);
+        return;
+    }
+
     // impMarkInlineCandidate() is expected not to mark tail prefixed calls
     // and recursive tail calls as inline candidates.
     noway_assert(!call->IsTailPrefixedCall());
@@ -7307,6 +7316,69 @@ void Compiler::fgMorphCallInlineHelper(GenTreeCall* call, InlineResult* result)
         // printf("After inlining lvaCount=%d.\n", lvaCount);
     }
 #endif
+}
+
+//------------------------------------------------------------------------
+// fgInlineDelegateInvoke: Inline expand delegate invocation
+//
+// Arguments:
+//    call: call to a delegate Invoke
+//
+// Notes:
+//    Modifies call in place to indirectly call the delegate method
+//    pointer.
+
+void Compiler::fgInlineDelegateInvoke(GenTreeCall* call)
+{
+    assert(call->IsDelegateInvoke());
+    JITDUMP("\nfgInlineDelegateInvoke [%06u]: ", dspTreeID(call));
+
+    // Bail on secure case for now
+    if (call->gtCallMoreFlags & GTF_CALL_M_SECURE_DELEGATE_INV)
+    {
+        JITDUMP("sorry, secure delegate\n");
+        return;
+    }
+
+    // The "this" feeding into the Invoke is the delegate instance.
+    // We will need to fetch two fields from it, so may need a temp.
+    GenTree* oldThis      = call->gtCallObjp;
+    GenTree* oldThisClone = nullptr;
+
+    if (oldThis->OperIsLocal())
+    {
+        oldThisClone = gtClone(oldThis, true);
+    }
+    else
+    {
+        // This call should be a top level statement.
+        // Todo: prepend assigning to a temp.
+        // Should be able to use the inline call info here...
+        JITDUMP("sorry, complex clone\n");
+        return;
+    }
+
+    // Fetch the "this" going into the call from the delegate
+    GenTree* newThisAddr =
+        gtNewOperNode(GT_ADD, TYP_BYREF, oldThis, gtNewIconNode(eeGetEEInfo()->offsetOfDelegateInstance, TYP_I_IMPL));
+    GenTree* newThis = gtNewOperNode(GT_IND, TYP_REF, newThisAddr);
+
+    // Fetch the method to invoke from the delegate
+    GenTree* methodAddr =
+        gtNewOperNode(GT_ADD, TYP_BYREF, oldThisClone, gtNewIconNode(eeGetEEInfo()->offsetOfDelegateFirstTarget));
+    GenTree* method = gtNewOperNode(GT_IND, TYP_REF, methodAddr);
+
+    // Update operands
+    call->gtCallAddr = method;
+    call->gtCallObjp = newThis;
+
+    // Update flags, etc...
+    call->gtCallMoreFlags &= ~GTF_CALL_M_DELEGATE_INV;
+    call->gtCallType   = CT_INDIRECT;
+    call->gtCallCookie = nullptr; // sigh, there goes the inline candidate info
+
+    JITDUMP("success, result is...\n");
+    DISPTREE(call);
 }
 
 //------------------------------------------------------------------------

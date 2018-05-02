@@ -3793,6 +3793,8 @@ public:
 
     void fgInline();
 
+    void fgInlineDelegateInvoke(GenTreeCall* call);
+
     void fgRemoveEmptyTry();
 
     void fgRemoveEmptyFinally();

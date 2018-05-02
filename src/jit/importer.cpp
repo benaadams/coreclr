@@ -17894,21 +17894,25 @@ void Compiler::impCheckCanInline(GenTree*               call,
             /* Try to get the code address/size for the method */
 
             CORINFO_METHOD_INFO methInfo;
-            if (!pParam->pThis->info.compCompHnd->getMethodInfo(pParam->fncHandle, &methInfo))
+            const bool          isDelegateInvoke = !!(pParam->methAttr & CORINFO_FLG_DELEGATE_INVOKE);
+
+            if (!isDelegateInvoke)
             {
-                pParam->result->NoteFatal(InlineObservation::CALLEE_NO_METHOD_INFO);
-                goto _exit;
-            }
+                if (!pParam->pThis->info.compCompHnd->getMethodInfo(pParam->fncHandle, &methInfo))
+                {
+                    pParam->result->NoteFatal(InlineObservation::CALLEE_NO_METHOD_INFO);
+                    goto _exit;
+                }
 
-            bool forceInline;
-            forceInline = !!(pParam->methAttr & CORINFO_FLG_FORCEINLINE);
+                const bool forceInline = !!(pParam->methAttr & CORINFO_FLG_FORCEINLINE);
 
-            pParam->pThis->impCanInlineIL(pParam->fncHandle, &methInfo, forceInline, pParam->result);
+                pParam->pThis->impCanInlineIL(pParam->fncHandle, &methInfo, forceInline, pParam->result);
 
-            if (pParam->result->IsFailure())
-            {
-                assert(pParam->result->IsNever());
-                goto _exit;
+                if (pParam->result->IsFailure())
+                {
+                    assert(pParam->result->IsNever());
+                    goto _exit;
+                }
             }
 
             // Speculatively check if initClass() can be done.
@@ -17930,39 +17934,43 @@ void Compiler::impCheckCanInline(GenTree*               call,
             // Given the EE the final say in whether to inline or not.
             // This should be last since for verifiable code, this can be expensive
 
-            /* VM Inline check also ensures that the method is verifiable if needed */
-            CorInfoInline vmResult;
-            vmResult = pParam->pThis->info.compCompHnd->canInline(pParam->pThis->info.compMethodHnd, pParam->fncHandle,
-                                                                  &dwRestrictions);
-
-            if (vmResult == INLINE_FAIL)
+            if (!isDelegateInvoke)
             {
-                pParam->result->NoteFatal(InlineObservation::CALLSITE_IS_VM_NOINLINE);
-            }
-            else if (vmResult == INLINE_NEVER)
-            {
-                pParam->result->NoteFatal(InlineObservation::CALLEE_IS_VM_NOINLINE);
-            }
 
-            if (pParam->result->IsFailure())
-            {
-                // Make sure not to report this one.  It was already reported by the VM.
-                pParam->result->SetReported();
-                goto _exit;
-            }
+                /* VM Inline check also ensures that the method is verifiable if needed */
+                CorInfoInline vmResult;
+                vmResult = pParam->pThis->info.compCompHnd->canInline(pParam->pThis->info.compMethodHnd,
+                                                                      pParam->fncHandle, &dwRestrictions);
 
-            // check for unsupported inlining restrictions
-            assert((dwRestrictions & ~(INLINE_RESPECT_BOUNDARY | INLINE_NO_CALLEE_LDSTR | INLINE_SAME_THIS)) == 0);
-
-            if (dwRestrictions & INLINE_SAME_THIS)
-            {
-                GenTree* thisArg = pParam->call->gtCall.gtCallObjp;
-                assert(thisArg);
-
-                if (!pParam->pThis->impIsThis(thisArg))
+                if (vmResult == INLINE_FAIL)
                 {
-                    pParam->result->NoteFatal(InlineObservation::CALLSITE_REQUIRES_SAME_THIS);
+                    pParam->result->NoteFatal(InlineObservation::CALLSITE_IS_VM_NOINLINE);
+                }
+                else if (vmResult == INLINE_NEVER)
+                {
+                    pParam->result->NoteFatal(InlineObservation::CALLEE_IS_VM_NOINLINE);
+                }
+
+                if (pParam->result->IsFailure())
+                {
+                    // Make sure not to report this one.  It was already reported by the VM.
+                    pParam->result->SetReported();
                     goto _exit;
+                }
+
+                // check for unsupported inlining restrictions
+                assert((dwRestrictions & ~(INLINE_RESPECT_BOUNDARY | INLINE_NO_CALLEE_LDSTR | INLINE_SAME_THIS)) == 0);
+
+                if (dwRestrictions & INLINE_SAME_THIS)
+                {
+                    GenTree* thisArg = pParam->call->gtCall.gtCallObjp;
+                    assert(thisArg);
+
+                    if (!pParam->pThis->impIsThis(thisArg))
+                    {
+                        pParam->result->NoteFatal(InlineObservation::CALLSITE_REQUIRES_SAME_THIS);
+                        goto _exit;
+                    }
                 }
             }
 
@@ -17979,14 +17987,17 @@ void Compiler::impCheckCanInline(GenTree*               call,
             fncRetType = pParam->call->TypeGet();
 
 #ifdef DEBUG
-            var_types fncRealRetType;
-            fncRealRetType = JITtype2varType(methInfo.args.retType);
+            if (!isDelegateInvoke)
+            {
+                var_types fncRealRetType;
+                fncRealRetType = JITtype2varType(methInfo.args.retType);
 
-            assert((genActualType(fncRealRetType) == genActualType(fncRetType)) ||
-                   // <BUGNUM> VSW 288602 </BUGNUM>
-                   // In case of IJW, we allow to assign a native pointer to a BYREF.
-                   (fncRetType == TYP_BYREF && methInfo.args.retType == CORINFO_TYPE_PTR) ||
-                   (varTypeIsStruct(fncRetType) && (fncRealRetType == TYP_STRUCT)));
+                assert((genActualType(fncRealRetType) == genActualType(fncRetType)) ||
+                       // <BUGNUM> VSW 288602 </BUGNUM>
+                       // In case of IJW, we allow to assign a native pointer to a BYREF.
+                       (fncRetType == TYP_BYREF && methInfo.args.retType == CORINFO_TYPE_PTR) ||
+                       (varTypeIsStruct(fncRetType) && (fncRealRetType == TYP_STRUCT)));
+            }
 #endif
 
             //
@@ -19104,8 +19115,12 @@ void Compiler::impMarkInlineCandidate(GenTree*               callNode,
 
     if (methAttr & CORINFO_FLG_DONT_INLINE)
     {
-        inlineResult.NoteFatal(InlineObservation::CALLEE_IS_NOINLINE);
-        return;
+        // Allow delegate invoke through, however.... ...?
+        if ((methAttr & CORINFO_FLG_DELEGATE_INVOKE) == 0)
+        {
+            inlineResult.NoteFatal(InlineObservation::CALLEE_IS_NOINLINE);
+            return;
+        }
     }
 
     /* Cannot inline synchronized methods */
