@@ -1636,7 +1636,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             return;
         }
 
-        pFieldInfo->fldOffset  = (BYTE)fldOffset;
+        pFieldInfo->fldOffset  = (BYTE)(fldOffset + structHeaderSize);
         pFieldInfo->fldOrdinal = ordinal;
         CorInfoType corType    = info.compCompHnd->getFieldType(pFieldInfo->fldHnd, &pFieldInfo->fldTypeHnd);
         pFieldInfo->fldType    = JITtype2varType(corType);
