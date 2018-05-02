@@ -1562,6 +1562,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
     CORINFO_CLASS_HANDLE parentTypeHnd   = nullptr;
     unsigned             currentFieldCnt = fieldCnt;
     unsigned             parentFieldCnt  = 0;
+    unsigned             childFieldCnt   = 0;
 
     if (!isValueClass)
     {
@@ -1586,6 +1587,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             assert(!isValueClass);
             currentTypeHnd = parentTypeHnd;
             parentTypeHnd  = info.compCompHnd->getParentType(currentTypeHnd);
+            childFieldCnt  = currentFieldCnt;
 
             if (parentTypeHnd != nullptr)
             {
@@ -1612,8 +1614,10 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             break;
         }
 
+        assert(ordinal >= childFieldCnt);
+
         lvaStructFieldInfo* pFieldInfo = &StructPromotionInfo->fields[ordinal];
-        pFieldInfo->fldHnd             = info.compCompHnd->getFieldInClass(currentTypeHnd, ordinal);
+        pFieldInfo->fldHnd             = info.compCompHnd->getFieldInClass(currentTypeHnd, ordinal - childFieldCnt);
 
         // We may hit this for ref class instances since # of fields reported above includes
         // all fields (even those in ancestor classes) but getFieldInClass only considers this
