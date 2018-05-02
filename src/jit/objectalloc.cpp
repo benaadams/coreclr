@@ -546,9 +546,10 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
             case GT_FIELD:
                 if (parentStack->Height() > 2)
                 {
+                    // TODO: This is not sufficient, we need to keep walking
+                    // up looking for a GT_ADDR not covered by a GT_IND.
                     GenTree* grandParent = parentStack->Index(2);
-                    JITDUMP("GT_FIELD grandparent is [%06u]\n", grandParent->gtTreeID);
-                    canLclVarEscapeViaParentStack = (grandParent->OperGet() == GT_ADDR);
+                    canLclVarEscapeViaParentStack = (grandParent->OperGet() == GT_ADDR); // Scenario (5)
                 }
                 break;
 
