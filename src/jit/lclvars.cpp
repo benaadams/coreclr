@@ -1494,8 +1494,8 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
     const DWORD    typeFlags        = info.compCompHnd->getClassAttribs(typeHnd);
     const bool     isDelegate       = (typeFlags & CORINFO_FLG_DELEGATE) != 0;
     const unsigned structHeaderSize = isValueClass ? 0 : info.compCompHnd->getObjHeaderSize();
-    const unsigned structSize       = isValueClass ? info.compCompHnd->getClassSize(typeHnd)
-                                             : info.compCompHnd->getHeapClassSize(typeHnd) + structHeaderSize;
+    const unsigned structSize =
+        isValueClass ? info.compCompHnd->getClassSize(typeHnd) : info.compCompHnd->getHeapClassSize(typeHnd);
 
     if ((structSize > MaxOffset) && !isDelegate)
     {
@@ -2429,8 +2429,8 @@ void Compiler::lvaSetStruct(unsigned varNum, CORINFO_CLASS_HANDLE typeHnd, bool 
         }
         else
         {
-            varDsc->lvExactSize = info.compCompHnd->getHeapClassSize(typeHnd) + info.compCompHnd->getObjHeaderSize();
-            varDsc->lvGcLayoutOffset = info.compCompHnd->getObjHeaderSize() + sizeof(LPVOID);
+            varDsc->lvExactSize      = info.compCompHnd->getHeapClassSize(typeHnd);
+            varDsc->lvGcLayoutOffset = info.compCompHnd->getObjHeaderSize();
         }
 
         size_t lvSize = varDsc->lvSize();
