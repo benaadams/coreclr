@@ -1471,7 +1471,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
 #if defined(FEATURE_SIMD)
 #if defined(_TARGET_XARCH_)
     // This will allow promotion of 2 Vector<T> fields on AVX2, or 4 Vector<T> fields on SSE2.
-    const int MaxOffset = (MAX_NumOfFieldsInPromotableStruct + 2) * XMM_REGSIZE_BYTES;
+    const int MaxOffset = MAX_NumOfFieldsInPromotableStruct * XMM_REGSIZE_BYTES;
 #elif defined(_TARGET_ARM64_)
     const int MaxOffset = MAX_NumOfFieldsInPromotableStruct * FP_REGSIZE_BYTES;
 #endif // defined(_TARGET_XARCH_) || defined(_TARGET_ARM64_)
@@ -1550,12 +1550,11 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
     unsigned structAlignment = roundUp(info.compCompHnd->getClassAlignmentRequirement(typeHnd), TARGET_POINTER_SIZE);
 #endif // _TARGET_ARM_
 
-    bool isHole[MaxOffset]; // isHole[] is initialized to true for every valid offset in the struct and false for
-    // the rest
-    unsigned i; // then as we process the fields we clear the isHole[] values that the field spans.
-    for (i = 0; i < MaxOffset; i++)
+    bool     isHole[MaxOffset + 8]; // hack
+    unsigned i;
+    for (i = 0; i < structSize; i++)
     {
-        isHole[i] = (i < structSize) ? true : false;
+        isHole[i] = true;
     }
 
     CORINFO_CLASS_HANDLE currentTypeHnd  = typeHnd;
@@ -1769,6 +1768,54 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             requiresScratchVar = true;
         }
 #endif // _TARGET_ARM_
+    }
+
+    // A ref class has two more fields: the preheader and the method table
+    // We don't have handles for these...
+    if (!isValueClass)
+    {
+        JITDUMP("Adding implicit ref class fields\n");
+        BYTE ordinal                  = fieldCnt;
+        StructPromotionInfo->fieldCnt = (BYTE)(fieldCnt + 2);
+
+        // Preheader
+        lvaStructFieldInfo* pFieldInfo = &StructPromotionInfo->fields[ordinal];
+        unsigned            fldOffset  = 0;
+        CorInfoType         corType    = CORINFO_TYPE_NATIVEINT;
+
+        pFieldInfo->fldHnd     = nullptr;
+        pFieldInfo->fldOffset  = fldOffset;
+        pFieldInfo->fldOrdinal = ordinal + 1;
+        pFieldInfo->fldType    = JITtype2varType(corType);
+        pFieldInfo->fldSize    = genTypeSize(pFieldInfo->fldType);
+
+        for (i = 0; i < pFieldInfo->fldSize; i++)
+        {
+            isHole[fldOffset + i] = false;
+        }
+
+        JITDUMP(" -- %u: Field %s type %s at offset %u\n", ordinal, "preheader", varTypeName(pFieldInfo->fldType),
+                fldOffset);
+
+        // Method Table
+        ordinal++;
+        pFieldInfo = &StructPromotionInfo->fields[ordinal];
+        fldOffset  = TARGET_POINTER_SIZE;
+        corType    = CORINFO_TYPE_NATIVEINT;
+
+        pFieldInfo->fldHnd     = nullptr;
+        pFieldInfo->fldOffset  = fldOffset;
+        pFieldInfo->fldOrdinal = ordinal + 2;
+        pFieldInfo->fldType    = JITtype2varType(corType);
+        pFieldInfo->fldSize    = genTypeSize(pFieldInfo->fldType);
+
+        for (i = 0; i < pFieldInfo->fldSize; i++)
+        {
+            isHole[fldOffset + i] = false;
+        }
+
+        JITDUMP(" -- %u: Field %s type %s at offset %u\n", ordinal, "methodTable", varTypeName(pFieldInfo->fldType),
+                fldOffset);
     }
 
     // If we saw any GC pointer or by-ref fields above then CORINFO_FLG_CONTAINS_GC_PTR or
@@ -2037,8 +2084,16 @@ void Compiler::lvaPromoteStructVar(unsigned lclNum, lvaStructPromotionInfo* Stru
         char  buf[200];
         char* bufp = &buf[0];
 
-        sprintf_s(bufp, sizeof(buf), "%s V%02u.%s (fldOffset=0x%x)", "field", lclNum,
-                  eeGetFieldName(pFieldInfo->fldHnd), pFieldInfo->fldOffset);
+        if (pFieldInfo->fldHnd == nullptr)
+        {
+            sprintf_s(bufp, sizeof(buf), "%s V%02u.%s (fldOffset=0x%x)", "field", lclNum,
+                      pFieldInfo->fldOffset == 0 ? "@preHeader" : "@methodTable", pFieldInfo->fldOffset);
+        }
+        else
+        {
+            sprintf_s(bufp, sizeof(buf), "%s V%02u.%s (fldOffset=0x%x)", "field", lclNum,
+                      eeGetFieldName(pFieldInfo->fldHnd), pFieldInfo->fldOffset);
+        }
 
         if (index > 0)
         {

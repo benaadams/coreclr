@@ -2785,7 +2785,7 @@ public:
         bool                 containsHoles;
         bool                 customLayout;
         unsigned char        fieldCnt;
-        lvaStructFieldInfo   fields[MAX_NumOfFieldsInPromotableStruct + 2];
+        lvaStructFieldInfo   fields[MAX_NumOfFieldsInPromotableStruct + 4];
 
         lvaStructPromotionInfo()
             : typeHnd(nullptr), canPromote(false), requiresScratchVar(false), containsHoles(false), customLayout(false)
