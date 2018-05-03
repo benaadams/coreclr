@@ -9414,8 +9414,10 @@ GenTree* Compiler::fgMorphLeaf(GenTree* tree)
 
         // Refer to gtNewIconHandleNode() as the template for constructing a constant handle
         //
+        CORINFO_METHOD_HANDLE ftnHandle = tree->gtFptrVal.gtFptrMethod;
         tree->SetOper(GT_CNS_INT);
         tree->gtIntConCommon.SetIconValue(ssize_t(addrInfo.handle));
+        tree->gtIntCon.gtCompileTimeHandle = ssize_t(ftnHandle);
         tree->gtFlags |= GTF_ICON_FTN_ADDR;
 
         switch (addrInfo.accessType)

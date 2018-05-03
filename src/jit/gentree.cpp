@@ -11022,6 +11022,13 @@ void Compiler::gtDispConst(GenTree* tree)
                             break;
                         case GTF_ICON_FTN_ADDR:
                             printf(" ftn");
+                            if (tree->gtIntCon.gtCompileTimeHandle != 0)
+                            {
+                                const char* className;
+                                const char* methodName;
+                                methodName = eeGetMethodName((CORINFO_METHOD_HANDLE)tree->gtIntCon.gtCompileTimeHandle, &className);
+                                printf(" %s.%s\n", className, methodName);
+                            }
                             break;
                         case GTF_ICON_CIDMID_HDL:
                             printf(" cid/mid");
