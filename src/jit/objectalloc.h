@@ -18,16 +18,20 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 //===============================================================================
 #include "phase.h"
+#include "smallhash.h"
 
 class ObjectAllocator final : public Phase
 {
+    typedef SmallHashTable<unsigned int, unsigned int, 8U> LocalToLocalMap;
+
     //===============================================================================
     // Data members
-    bool         m_IsObjectStackAllocationEnabled;
-    bool         m_AnalysisDone;
-    bool         m_IsRunningAfterMorph;
-    BitVecTraits m_bitVecTraits;
-    BitVec       m_EscapingPointers;
+    bool            m_IsObjectStackAllocationEnabled;
+    bool            m_AnalysisDone;
+    bool            m_IsRunningAfterMorph;
+    BitVecTraits    m_bitVecTraits;
+    BitVec          m_EscapingPointers;
+    LocalToLocalMap m_HeapLocalToStackLocalMap;
 
     //===============================================================================
     // Methods
@@ -46,13 +50,15 @@ private:
     void DoAnalysis();
     void BuildConnGraph(BitVec** pConnGraphPointees);
     static void ComputeReachableNodes(BitVecTraits* bitVecTraits, BitVec* adjacentNodes, BitVec& reachableNodes);
-    void     MorphAllocObjNodes();
+    bool     MorphAllocObjNodes();
+    void     RewriteUses();
     GenTree* MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* allocObj);
-    GenTree* MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, GenTreeStmt* stmt);
+    unsigned int MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, GenTreeStmt* stmt);
     static bool CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack,
                                               Compiler*             compiler,
                                               unsigned int          lclNum);
     static Compiler::fgWalkResult BuildConnGraphVisitor(GenTree** pTree, Compiler::fgWalkData* data);
+    static Compiler::fgWalkResult RewriteUsesVisitor(GenTree** pTree, Compiler::fgWalkData* data);
     struct BuildConnGraphVisitorCallbackData;
 #ifdef DEBUG
     static Compiler::fgWalkResult AssertWhenAllocObjFoundVisitor(GenTree** pTree, Compiler::fgWalkData* data);
@@ -68,6 +74,7 @@ inline ObjectAllocator::ObjectAllocator(Compiler* comp, bool isAfterMorph)
     , m_AnalysisDone(false)
     , m_IsRunningAfterMorph(isAfterMorph)
     , m_bitVecTraits(comp->lvaCount, comp)
+    , m_HeapLocalToStackLocalMap(comp)
 {
     m_EscapingPointers = BitVecOps::UninitVal();
     m_doChecks         = isAfterMorph;

@@ -16,14 +16,13 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #pragma hdrstop
 #endif
 
-//===============================================================================
-
 //------------------------------------------------------------------------
 // DoPhase: Run analysis (if object stack allocation is enabled) and then
 //          morph each GT_ALLOCOBJ node either into an allocation helper
 //          call or stack allocation.
 // Notes:
 //    Runs only if Compiler::optMethodFlags has flag OMF_HAS_NEWOBJ set.
+
 void ObjectAllocator::DoPhase()
 {
     JITDUMP("\n*** ObjectAllocationPhase: ");
@@ -43,7 +42,12 @@ void ObjectAllocator::DoPhase()
         JITDUMP("disabled, punting\n");
     }
 
-    MorphAllocObjNodes();
+    const bool didStackAllocate = MorphAllocObjNodes();
+
+    if (didStackAllocate)
+    {
+        RewriteUses();
+    }
 }
 
 struct ObjectAllocator::BuildConnGraphVisitorCallbackData
@@ -181,9 +185,13 @@ void ObjectAllocator::ComputeReachableNodes(BitVecTraits* bitVecTraits, BitVec* 
 // MorphAllocObjNodes: Morph each GT_ALLOCOBJ node either into an
 //                     allocation helper call or stack allocation.
 //
+// Returns:
+//    true if any allocation was done as a stack allocation.
+//
 // Notes:
 //    Runs only over the blocks having bbFlags BBF_HAS_NEWOBJ set.
-void ObjectAllocator::MorphAllocObjNodes()
+
+bool ObjectAllocator::MorphAllocObjNodes()
 {
     TarjanStronglyConnectedComponents tarjanScc(comp);
 
@@ -191,6 +199,8 @@ void ObjectAllocator::MorphAllocObjNodes()
     {
         tarjanScc.DoAnalysis();
     }
+
+    bool didStackAllocate = false;
 
     BasicBlock* block;
 
@@ -247,8 +257,12 @@ void ObjectAllocator::MorphAllocObjNodes()
                     !tarjanScc.IsPartOfCycle(block->bbNum))
                 {
                     JITDUMP("Allocating local variable V%02u on the stack\n", lclNum);
-                    op2 = MorphAllocObjNodeIntoStackAlloc(asAllocObj, block, stmt);
+
+                    const unsigned int stackLclNum = MorphAllocObjNodeIntoStackAlloc(asAllocObj, block, stmt);
+                    m_HeapLocalToStackLocalMap.AddOrUpdate(lclNum, stackLclNum);
+                    stmt->gtStmtExpr->gtBashToNOP();
                     comp->optMethodFlags |= OMF_HAS_OBJSTACKALLOC;
+                    didStackAllocate = true;
                 }
                 else
                 {
@@ -280,6 +294,8 @@ void ObjectAllocator::MorphAllocObjNodes()
 #endif // DEBUG
         }
     }
+
+    return didStackAllocate;
 }
 
 //------------------------------------------------------------------------
@@ -315,14 +331,13 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* alloc
 //    stmt     - a statement where allocObj is
 //
 // Return Value:
-//    Address of tree doing stack allocation (can be the same as allocObj).
+//    local num for the new stack allocated local
 //
 // Notes:
-//    Must update parents flags after this.
 //    This function can insert additional statements before stmt.
-GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj,
-                                                          BasicBlock*      block,
-                                                          GenTreeStmt*     stmt)
+unsigned int ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj,
+                                                              BasicBlock*      block,
+                                                              GenTreeStmt*     stmt)
 {
     assert(allocObj != nullptr);
     assert(m_AnalysisDone);
@@ -368,7 +383,7 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
     //              \--*  GT_LCL_VAR  lclNum
     //------------------------------------------------------------------------
 
-    const unsigned objHeaderSize = comp->info.compCompHnd->getObjHeaderSize();
+    const unsigned objHeaderSize = 0; // comp->info.compCompHnd->getObjHeaderSize();
 
     tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
     tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
@@ -384,30 +399,7 @@ GenTree* ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* alloc
         comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
     }
 
-    //------------------------------------------------------------------------
-    // *  GT_STMT   void
-    // |  / --*  GT_ADDR      long
-    // |  |   \--*  GT_LCL_VAR    struct
-    // \--*  GT_ASG    ref
-    //    \--*  GT_LCL_VAR    ref
-    //------------------------------------------------------------------------
-
-    /* allocObj->ChangeOper(GT_ADDR);
-     allocObj->gtType = TYP_I_IMPL;
-
-     tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
-     allocObj->gtOp1 = tree;*/
-    allocObj->ChangeOper(GT_ADD);
-    allocObj->gtType = TYP_I_IMPL;
-
-    tree            = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
-    tree            = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
-    allocObj->gtOp1 = tree;
-
-    tree                 = comp->gtNewIconNode(objHeaderSize);
-    allocObj->gtOp.gtOp2 = tree;
-
-    return allocObj;
+    return lclNum;
 }
 
 Compiler::fgWalkResult ObjectAllocator::BuildConnGraphVisitor(GenTree** pTree, Compiler::fgWalkData* data)
@@ -520,7 +512,6 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
     //   1. When node.parent is any of the following nodes: GT_IND, GT_EQ, GT_NE
     //   2. When node.parent is GT_ADD and node.parent.parent is GT_IND
     //   3. When node.parent is GT_CALL to a pure helper
-    //   4. When node.parent is GT_CALL to delegate invoke and lcl is the this obj
     //   5. When node.parent is GT_FIELD on RHS of a GT_ASG
     //--------------------------------------------------------------------------
 
@@ -575,23 +566,6 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
                         canLclVarEscapeViaParentStack = false; // Scenario (3)
                     }
                 }
-                else if (asCall->gtCallType == CT_USER_FUNC)
-                {
-                    // Delegate invoke won't escape the delegate which is passed as "this"
-                    if ((asCall->gtCallMoreFlags & GTF_CALL_M_DELEGATE_INV) != 0)
-                    {
-                        GenTree* thisArg = compiler->gtGetThisArg(asCall);
-
-                        JITDUMP("... found Invoke (considering V%02u @ [%06u] with this [%06u])\n", lclNum,
-                                asCall->gtTreeID, thisArg->gtTreeID);
-                        DISPTREE(thisArg);
-
-                        if (thisArg->OperIs(GT_LCL_VAR) && (thisArg->AsLclVar()->GetLclNum() == lclNum))
-                        {
-                            canLclVarEscapeViaParentStack = false; // Scenario (4)
-                        }
-                    }
-                }
             }
             break;
         }
@@ -621,4 +595,46 @@ Compiler::fgWalkResult ObjectAllocator::AssertWhenAllocObjFoundVisitor(GenTree**
 
 #endif // DEBUG
 
-//===============================================================================
+//------------------------------------------------------------------------
+// RewriteUses: find uses of the newobj temp for stack allocated
+//    objects and replace with address of the stack local + offset.
+
+void ObjectAllocator::RewriteUses()
+{
+    BasicBlock* block;
+
+    foreach_block(comp, block)
+    {
+        for (GenTreeStmt* stmt = block->firstStmt(); stmt; stmt = stmt->gtNextStmt)
+        {
+            const bool lclVarsOnly  = true;
+            const bool computeStack = false;
+
+            comp->fgWalkTreePre(&stmt->gtStmtExpr, RewriteUsesVisitor, this, lclVarsOnly, computeStack);
+        }
+    }
+}
+
+//------------------------------------------------------------------------
+// RewriteUses: find uses of the newobj temp for stack allocated
+//    objects and replace with address of the stack local
+
+Compiler::fgWalkResult ObjectAllocator::RewriteUsesVisitor(GenTree** pTree, Compiler::fgWalkData* data)
+{
+    ObjectAllocator* allocator = reinterpret_cast<ObjectAllocator*>(data->pCallbackData);
+    GenTree*         tree      = *pTree;
+    assert(tree != nullptr);
+    assert(tree->IsLocal());
+
+    const unsigned int lclNum    = tree->AsLclVarCommon()->gtLclNum;
+    unsigned int       newLclNum = BAD_VAR_NUM;
+    Compiler*          comp      = allocator->comp;
+
+    if (allocator->m_HeapLocalToStackLocalMap.TryGetValue(lclNum, &newLclNum))
+    {
+        GenTree* newTree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, comp->gtNewLclvNode(newLclNum, TYP_STRUCT));
+        *pTree           = newTree;
+    }
+
+    return Compiler::fgWalkResult::WALK_CONTINUE;
+}

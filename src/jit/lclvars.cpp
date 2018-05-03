@@ -1491,11 +1491,17 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
     StructPromotionInfo->typeHnd    = typeHnd;
     StructPromotionInfo->canPromote = false;
 
-    const DWORD    typeFlags        = info.compCompHnd->getClassAttribs(typeHnd);
-    const bool     isDelegate       = (typeFlags & CORINFO_FLG_DELEGATE) != 0;
-    const unsigned structHeaderSize = isValueClass ? 0 : info.compCompHnd->getObjHeaderSize();
+    const DWORD typeFlags  = info.compCompHnd->getClassAttribs(typeHnd);
+    const bool  isDelegate = (typeFlags & CORINFO_FLG_DELEGATE) != 0;
+    // const unsigned structHeaderSize = 0; isValueClass ? 0 : info.compCompHnd->getObjHeaderSize();
+    // const unsigned structSize =
+    //    isValueClass ? info.compCompHnd->getClassSize(typeHnd) : info.compCompHnd->getHeapClassSize(typeHnd)
+
+    const unsigned structHeaderSize = 0;
+
     const unsigned structSize =
-        isValueClass ? info.compCompHnd->getClassSize(typeHnd) : info.compCompHnd->getHeapClassSize(typeHnd);
+        isValueClass ? info.compCompHnd->getClassSize(typeHnd)
+                     : info.compCompHnd->getHeapClassSize(typeHnd) - info.compCompHnd->getObjHeaderSize();
 
     if ((structSize > MaxOffset) && !isDelegate)
     {
@@ -1776,6 +1782,10 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
     {
         JITDUMP("Adding implicit ref class fields\n");
         BYTE ordinal                  = fieldCnt;
+        StructPromotionInfo->fieldCnt = (BYTE)(fieldCnt + 1);
+
+#if 0
+
         StructPromotionInfo->fieldCnt = (BYTE)(fieldCnt + 2);
 
         // Preheader
@@ -1797,15 +1807,24 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
         JITDUMP(" -- %u: Field %s type %s at offset %u\n", ordinal, "preheader", varTypeName(pFieldInfo->fldType),
                 fldOffset);
 
-        // Method Table
         ordinal++;
+
+
+        // Method Table
         pFieldInfo = &StructPromotionInfo->fields[ordinal];
         fldOffset  = TARGET_POINTER_SIZE;
         corType    = CORINFO_TYPE_NATIVEINT;
 
+#endif
+
+        // Method Table
+        lvaStructFieldInfo* pFieldInfo = &StructPromotionInfo->fields[ordinal];
+        unsigned            fldOffset  = 0;
+        CorInfoType         corType    = CORINFO_TYPE_NATIVEINT;
+
         pFieldInfo->fldHnd     = nullptr;
         pFieldInfo->fldOffset  = fldOffset;
-        pFieldInfo->fldOrdinal = ordinal + 2;
+        pFieldInfo->fldOrdinal = ordinal;
         pFieldInfo->fldType    = JITtype2varType(corType);
         pFieldInfo->fldSize    = genTypeSize(pFieldInfo->fldType);
 
@@ -2087,7 +2106,9 @@ void Compiler::lvaPromoteStructVar(unsigned lclNum, lvaStructPromotionInfo* Stru
         if (pFieldInfo->fldHnd == nullptr)
         {
             sprintf_s(bufp, sizeof(buf), "%s V%02u.%s (fldOffset=0x%x)", "field", lclNum,
-                      pFieldInfo->fldOffset == 0 ? "@preHeader" : "@methodTable", pFieldInfo->fldOffset);
+                      //                      pFieldInfo->fldOffset == 0 ? "@preHeader" : "@methodTable",
+                      //                      pFieldInfo->fldOffset);
+                      "@methodTable", pFieldInfo->fldOffset);
         }
         else
         {
@@ -2429,7 +2450,8 @@ void Compiler::lvaSetStruct(unsigned varNum, CORINFO_CLASS_HANDLE typeHnd, bool 
         }
         else
         {
-            varDsc->lvExactSize      = info.compCompHnd->getHeapClassSize(typeHnd);
+            // varDsc->lvExactSize      = info.compCompHnd->getHeapClassSize(typeHnd);
+            varDsc->lvExactSize = info.compCompHnd->getHeapClassSize(typeHnd) - info.compCompHnd->getObjHeaderSize();
             varDsc->lvGcLayoutOffset = info.compCompHnd->getObjHeaderSize();
         }
 
