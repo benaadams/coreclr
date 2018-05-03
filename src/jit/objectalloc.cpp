@@ -342,16 +342,15 @@ unsigned int ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* a
     assert(allocObj != nullptr);
     assert(m_AnalysisDone);
 
-    unsigned int lclNum;
-
-    lclNum = comp->lvaGrabTemp(false DEBUGARG("MorphAllocObjNodeIntoStackAlloc temp")); // Lifetime of this local
-                                                                                        // variable can be longer than
-                                                                                        // one BB
+    const unsigned int lclNum = comp->lvaGrabTemp(false DEBUGARG("MorphAllocObjNodeIntoStackAlloc temp"));
     comp->lvaSetStruct(lclNum, allocObj->gtAllocObjClsHnd, true);
 
-    unsigned int structSize = comp->lvaTable[lclNum].lvSize();
+    // Because we've ruled out structs allocated within loops
+    // and we've zero inited in the prolog, we don't need to zero init here.
 
-    GenTree* tree;
+#if 0
+
+    unsigned int structSize = comp->lvaTable[lclNum].lvSize();
 
     //------------------------------------------------------------------------
     // *  GT_STMT  void  (top level)
@@ -374,6 +373,8 @@ unsigned int ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* a
         comp->fgMorphBlockStmt(block, newStmt DEBUGARG("MorphAllocObjNodeIntoStackAlloc"));
     }
 
+#endif
+
     //------------------------------------------------------------------------
     // *  GT_STMT   void
     // |  /--*  GT_CNS_INT  long
@@ -385,12 +386,12 @@ unsigned int ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* a
 
     const unsigned objHeaderSize = 0; // comp->info.compCompHnd->getObjHeaderSize();
 
-    tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
+    GenTree* tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
     tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
     tree = comp->gtNewFieldRef(TYP_I_IMPL, nullptr, tree, objHeaderSize);
     tree = comp->gtNewAssignNode(tree, allocObj->gtGetOp1());
 
-    newStmt = comp->gtNewStmt(tree);
+    GenTreeStmt* newStmt = comp->gtNewStmt(tree);
 
     comp->fgInsertStmtBefore(block, stmt, newStmt);
 
