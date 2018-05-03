@@ -11026,7 +11026,8 @@ void Compiler::gtDispConst(GenTree* tree)
                             {
                                 const char* className;
                                 const char* methodName;
-                                methodName = eeGetMethodName((CORINFO_METHOD_HANDLE)tree->gtIntCon.gtCompileTimeHandle, &className);
+                                methodName = eeGetMethodName((CORINFO_METHOD_HANDLE)tree->gtIntCon.gtCompileTimeHandle,
+                                                             &className);
                                 printf(" %s.%s\n", className, methodName);
                             }
                             break;
@@ -17114,8 +17115,7 @@ bool GenTree::IsFieldAddr(Compiler* comp, GenTree** pObj, GenTree** pStatic, Fie
             //
             // The CSE could be a pointer to a boxed struct
             //
-            GenTreeLclVarCommon* lclVar = AsLclVarCommon();
-            ValueNum             vn     = gtVNPair.GetLiberal();
+            ValueNum vn = gtVNPair.GetLiberal();
             if (vn != ValueNumStore::NoVN)
             {
                 // Is the ValueNum a MapSelect involving a SharedStatic helper?

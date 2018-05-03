@@ -16,6 +16,8 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #pragma hdrstop
 #endif
 
+#include "gentree.h"
+
 //------------------------------------------------------------------------
 // DoPhase: Run analysis (if object stack allocation is enabled) and then
 //          morph each GT_ALLOCOBJ node either into an allocation helper
@@ -345,8 +347,8 @@ unsigned int ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* a
     const unsigned int lclNum = comp->lvaGrabTemp(false DEBUGARG("MorphAllocObjNodeIntoStackAlloc temp"));
     comp->lvaSetStruct(lclNum, allocObj->gtAllocObjClsHnd, true);
 
-    // Because we've ruled out structs allocated within loops
-    // and we've zero inited in the prolog, we don't need to zero init here.
+// Because we've ruled out structs allocated within loops
+// and we've zero inited in the prolog, we don't need to zero init here.
 
 #if 0
 
@@ -387,9 +389,9 @@ unsigned int ObjectAllocator::MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* a
     const unsigned objHeaderSize = 0; // comp->info.compCompHnd->getObjHeaderSize();
 
     GenTree* tree = comp->gtNewLclvNode(lclNum, TYP_STRUCT);
-    tree = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
-    tree = comp->gtNewFieldRef(TYP_I_IMPL, nullptr, tree, objHeaderSize);
-    tree = comp->gtNewAssignNode(tree, allocObj->gtGetOp1());
+    tree          = comp->gtNewOperNode(GT_ADDR, TYP_BYREF, tree);
+    tree          = comp->gtNewFieldRef(TYP_I_IMPL, FieldSeqStore::FirstElemPseudoField, tree, objHeaderSize);
+    tree          = comp->gtNewAssignNode(tree, allocObj->gtGetOp1());
 
     GenTreeStmt* newStmt = comp->gtNewStmt(tree);
 

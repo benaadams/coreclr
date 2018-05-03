@@ -6409,13 +6409,19 @@ void Compiler::fgValueNumberTree(GenTree* tree, bool evalAsgLhsInd)
                             {
                                 assert(fldSeq != nullptr);
 #ifdef DEBUG
-                                CORINFO_CLASS_HANDLE fldCls = info.compCompHnd->getFieldClass(fldSeq->m_fieldHnd);
-                                if (obj != nullptr)
+                                if (!FieldSeqStore::IsPseudoField(fldSeq->m_fieldHnd))
                                 {
-                                    // Make sure that the class containing it is not a value class (as we are expecting
-                                    // an instance field)
-                                    assert((info.compCompHnd->getClassAttribs(fldCls) & CORINFO_FLG_VALUECLASS) == 0);
-                                    assert(staticOffset == nullptr);
+
+                                    CORINFO_CLASS_HANDLE fldCls = info.compCompHnd->getFieldClass(fldSeq->m_fieldHnd);
+                                    if (obj != nullptr)
+                                    {
+                                        // Make sure that the class containing it is not a value class (as we are
+                                        // expecting
+                                        // an instance field)
+                                        assert((info.compCompHnd->getClassAttribs(fldCls) & CORINFO_FLG_VALUECLASS) ==
+                                               0);
+                                        assert(staticOffset == nullptr);
+                                    }
                                 }
 #endif // DEBUG
                                 // Get the first (instance or static) field from field seq.  GcHeap[field] will yield
@@ -6881,13 +6887,16 @@ void Compiler::fgValueNumberTree(GenTree* tree, bool evalAsgLhsInd)
                         CLANG_FORMAT_COMMENT_ANCHOR;
 
 #ifdef DEBUG
-                        CORINFO_CLASS_HANDLE fldCls = info.compCompHnd->getFieldClass(fldSeq2->m_fieldHnd);
-                        if (obj != nullptr)
+                        if (!FieldSeqStore::IsPseudoField(fldSeq2->m_fieldHnd))
                         {
-                            // Make sure that the class containing it is not a value class (as we are expecting an
-                            // instance field)
-                            assert((info.compCompHnd->getClassAttribs(fldCls) & CORINFO_FLG_VALUECLASS) == 0);
-                            assert(staticOffset == nullptr);
+                            CORINFO_CLASS_HANDLE fldCls = info.compCompHnd->getFieldClass(fldSeq2->m_fieldHnd);
+                            if (obj != nullptr)
+                            {
+                                // Make sure that the class containing it is not a value class (as we are expecting an
+                                // instance field)
+                                assert((info.compCompHnd->getClassAttribs(fldCls) & CORINFO_FLG_VALUECLASS) == 0);
+                                assert(staticOffset == nullptr);
+                            }
                         }
 #endif // DEBUG
                         // Get a field sequence for just the first field in the sequence

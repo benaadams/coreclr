@@ -7360,11 +7360,13 @@ void Compiler::fgInlineDelegateInvoke(GenTreeCall* call)
 
     // Fetch the "this" going into the call from the delegate.
     // Use pseudo-field for this one... (could get real field handle with some effort)
-    GenTree* newThis = gtNewFieldRef(TYP_REF, nullptr, oldThis, eeGetEEInfo()->offsetOfDelegateInstance);
+    GenTree* newThis = gtNewFieldRef(TYP_REF, FieldSeqStore::ConstantIndexPseudoField, oldThis,
+                                     eeGetEEInfo()->offsetOfDelegateInstance);
 
     // Fetch the method to invoke from the delegate
     // Use pseudo-field for this one...
-    GenTree* method = gtNewFieldRef(TYP_I_IMPL, nullptr, oldThisClone, eeGetEEInfo()->offsetOfDelegateFirstTarget);
+    GenTree* method = gtNewFieldRef(TYP_I_IMPL, FieldSeqStore::ConstantIndexPseudoField, oldThisClone,
+                                    eeGetEEInfo()->offsetOfDelegateFirstTarget);
 
     // Update operands
     call->gtCallAddr = method;
