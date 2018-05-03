@@ -494,7 +494,6 @@ void GenTree::ReplaceWith(GenTree* src, Compiler* comp)
  */
 
 #if NODEBASH_STATS
-
 #define BASH_HASH_SIZE 211
 
 inline unsigned hashme(genTreeOps op1, genTreeOps op2)
@@ -11023,6 +11022,14 @@ void Compiler::gtDispConst(GenTree* tree)
                             break;
                         case GTF_ICON_FTN_ADDR:
                             printf(" ftn");
+                            if (tree->gtIntCon.gtCompileTimeHandle != 0)
+                            {
+                                const char* className;
+                                const char* methodName;
+                                methodName = eeGetMethodName((CORINFO_METHOD_HANDLE)tree->gtIntCon.gtCompileTimeHandle,
+                                                             &className);
+                                printf(" %s.%s\n", className, methodName);
+                            }
                             break;
                         case GTF_ICON_CIDMID_HDL:
                             printf(" cid/mid");
@@ -11220,8 +11227,16 @@ void Compiler::gtDispLeaf(GenTree* tree, IndentStack* indentStack)
                         else
 #endif // !defined(_TARGET_64BIT_)
                         {
-                            fldHnd    = info.compCompHnd->getFieldInClass(typeHnd, fieldVarDsc->lvFldOrdinal);
-                            fieldName = eeGetFieldName(fldHnd);
+                            if (eeIsValueClass(typeHnd))
+                            {
+                                fldHnd    = info.compCompHnd->getFieldInClass(typeHnd, varDsc->lvFldOrdinal);
+                                fieldName = eeGetFieldName(fldHnd);
+                            }
+                            else
+                            {
+                                // Todo -- the more complex logic to find the nth field of a ref class
+                                fieldName = "??";
+                            }
                         }
 
                         printf("\n");
@@ -11804,7 +11819,14 @@ void Compiler::gtDispTree(GenTree*     tree,
     switch (tree->gtOper)
     {
         case GT_FIELD:
-            printf(" %s", eeGetFieldName(tree->gtField.gtFldHnd), 0);
+            if (tree->gtField.gtFldHnd != nullptr)
+            {
+                printf(" %s", eeGetFieldName(tree->gtField.gtFldHnd), 0);
+            }
+            else
+            {
+                printf(" @field:0x%x", tree->gtField.gtFldOffset);
+            }
 
             if (tree->gtField.gtFldObj && !topOnly)
             {
@@ -13269,6 +13291,29 @@ GenTree* Compiler::gtFoldExprSpecial(GenTree* tree)
 
                         return op;
                     }
+                }
+            }
+            else if ((val == 0) && (op->TypeGet() == TYP_REF) && (op->OperGet() == GT_LCL_VAR))
+            {
+                // assert type is REF/BYREF?
+                const unsigned int lclNum = op->AsLclVar()->GetLclNum();
+                JITDUMP("\ngtFoldExprSpecial: trying null fold for V%02u", lclNum);
+
+                if (lvaTable[lclNum].lvIsNonNull)
+                {
+                    op = gtNewIconNode(oper != GT_EQ);
+
+                    if (fgGlobalMorph)
+                    {
+                        fgMorphTreeDone(op);
+                    }
+                    else
+                    {
+                        op->gtNext = tree->gtNext;
+                        op->gtPrev = tree->gtPrev;
+                    }
+
+                    return op;
                 }
             }
 
@@ -17070,8 +17115,7 @@ bool GenTree::IsFieldAddr(Compiler* comp, GenTree** pObj, GenTree** pStatic, Fie
             //
             // The CSE could be a pointer to a boxed struct
             //
-            GenTreeLclVarCommon* lclVar = AsLclVarCommon();
-            ValueNum             vn     = gtVNPair.GetLiberal();
+            ValueNum vn = gtVNPair.GetLiberal();
             if (vn != ValueNumStore::NoVN)
             {
                 // Is the ValueNum a MapSelect involving a SharedStatic helper?
@@ -17339,8 +17383,9 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* isExact, bo
             // For locals, pick up type info from the local table.
             const unsigned objLcl = obj->AsLclVar()->GetLclNum();
 
-            objClass = lvaTable[objLcl].lvClassHnd;
-            *isExact = lvaTable[objLcl].lvClassIsExact;
+            objClass   = lvaTable[objLcl].lvClassHnd;
+            *isExact   = lvaTable[objLcl].lvClassIsExact;
+            *isNonNull = lvaTable[objLcl].lvIsNonNull;
             break;
         }
 
@@ -17374,7 +17419,7 @@ CORINFO_CLASS_HANDLE Compiler::gtGetClassHandle(GenTree* tree, bool* isExact, bo
         case GT_CALL:
         {
             GenTreeCall* call = tree->AsCall();
-            if (call->IsInlineCandidate())
+            if (call->IsInlineCandidate() && !call->IsDelegateInvoke())
             {
                 // For inline candidates, we've already cached the return
                 // type class handle in the inline info.

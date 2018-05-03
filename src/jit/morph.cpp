@@ -58,7 +58,7 @@ GenTree* Compiler::fgMorphCastIntoHelper(GenTree* tree, int helper, GenTree* ope
  *  the given argument list.
  */
 
-GenTree* Compiler::fgMorphIntoHelperCall(GenTree* tree, int helper, GenTreeArgList* args)
+GenTree* Compiler::fgMorphIntoHelperCall(GenTree* tree, int helper, GenTreeArgList* args, bool morphResult)
 {
     // The helper call ought to be semantically equivalent to the original node, so preserve its VN.
     tree->ChangeOper(GT_CALL, GenTree::PRESERVE_VN);
@@ -116,7 +116,10 @@ GenTree* Compiler::fgMorphIntoHelperCall(GenTree* tree, int helper, GenTreeArgLi
 
     /* Perform the morphing */
 
-    tree = fgMorphArgs(tree->AsCall());
+    if (morphResult)
+    {
+        tree = fgMorphArgs(tree->AsCall());
+    }
 
     return tree;
 }
@@ -4480,6 +4483,7 @@ GenTreeCall* Compiler::fgMorphArgs(GenTreeCall* call)
     if (call->gtCallType == CT_INDIRECT)
     {
         call->gtCallAddr = fgMorphTree(call->gtCallAddr);
+        flagsSummary |= call->gtCallAddr->gtFlags;
     }
 
     call->fgArgInfo->RecordStkLevel(fgPtrArgCntCur);
@@ -7220,6 +7224,14 @@ void Compiler::fgMorphCallInlineHelper(GenTreeCall* call, InlineResult* result)
         return;
     }
 
+    // Inline delegate invoke specially...
+    if (call->IsDelegateInvoke())
+    {
+        fgInlineDelegateInvoke(call);
+        result->NoteFatal(InlineObservation::CALLSITE_IS_NOT_DIRECT);
+        return;
+    }
+
     // impMarkInlineCandidate() is expected not to mark tail prefixed calls
     // and recursive tail calls as inline candidates.
     noway_assert(!call->IsTailPrefixedCall());
@@ -7293,6 +7305,69 @@ void Compiler::fgMorphCallInlineHelper(GenTreeCall* call, InlineResult* result)
         // printf("After inlining lvaCount=%d.\n", lvaCount);
     }
 #endif
+}
+
+//------------------------------------------------------------------------
+// fgInlineDelegateInvoke: Inline expand delegate invocation
+//
+// Arguments:
+//    call: call to a delegate Invoke
+//
+// Notes:
+//    Modifies call in place to indirectly call the delegate method
+//    pointer.
+
+void Compiler::fgInlineDelegateInvoke(GenTreeCall* call)
+{
+    assert(call->IsDelegateInvoke());
+    JITDUMP("\nfgInlineDelegateInvoke [%06u]: ", dspTreeID(call));
+
+    // Bail on secure case for now
+    if (call->gtCallMoreFlags & GTF_CALL_M_SECURE_DELEGATE_INV)
+    {
+        JITDUMP("sorry, secure delegate\n");
+        return;
+    }
+
+    // The "this" feeding into the Invoke is the delegate instance.
+    // We will need to fetch two fields from it, so may need a temp.
+    GenTree* oldThis      = call->gtCallObjp;
+    GenTree* oldThisClone = nullptr;
+
+    if (oldThis->OperIsLocal())
+    {
+        oldThisClone = gtClone(oldThis, true);
+    }
+    else
+    {
+        // This call should be a top level statement.
+        // Todo: prepend assigning to a temp.
+        // Should be able to use the inline call info here...
+        JITDUMP("sorry, complex clone\n");
+        return;
+    }
+
+    // Fetch the "this" going into the call from the delegate.
+    // Use pseudo-field for this one... (could get real field handle with some effort)
+    GenTree* newThis = gtNewFieldRef(TYP_REF, FieldSeqStore::ConstantIndexPseudoField, oldThis,
+                                     eeGetEEInfo()->offsetOfDelegateInstance);
+
+    // Fetch the method to invoke from the delegate
+    // Use pseudo-field for this one...
+    GenTree* method = gtNewFieldRef(TYP_I_IMPL, FieldSeqStore::ConstantIndexPseudoField, oldThisClone,
+                                    eeGetEEInfo()->offsetOfDelegateFirstTarget);
+
+    // Update operands
+    call->gtCallAddr = method;
+    call->gtCallObjp = newThis;
+
+    // Update flags, etc...
+    call->gtCallMoreFlags &= ~GTF_CALL_M_DELEGATE_INV;
+    call->gtCallType   = CT_INDIRECT;
+    call->gtCallCookie = nullptr; // sigh, there goes the inline candidate info
+
+    JITDUMP("success, result is...\n");
+    DISPTREE(call);
 }
 
 //------------------------------------------------------------------------
@@ -9330,8 +9405,10 @@ GenTree* Compiler::fgMorphLeaf(GenTree* tree)
 
         // Refer to gtNewIconHandleNode() as the template for constructing a constant handle
         //
+        CORINFO_METHOD_HANDLE ftnHandle = tree->gtFptrVal.gtFptrMethod;
         tree->SetOper(GT_CNS_INT);
         tree->gtIntConCommon.SetIconValue(ssize_t(addrInfo.handle));
+        tree->gtIntCon.gtCompileTimeHandle = ssize_t(ftnHandle);
         tree->gtFlags |= GTF_ICON_FTN_ADDR;
 
         switch (addrInfo.accessType)
@@ -18070,6 +18147,17 @@ void Compiler::fgMorph()
     RecordStateAtEndOfInlining(); // Record "start" values for post-inlining cycles and elapsed time.
 
     EndPhase(PHASE_MORPH_INLINE);
+
+    // Transform each GT_ALLOCOBJ node into either an allocation helper call or
+    // local variable allocation on the stack.
+    ObjectAllocator objectAllocator(this, /* isAfterMorph */ false);
+
+    if (JitConfig.JitObjectStackAllocation() && !opts.MinOpts() && !opts.compDbgCode)
+    {
+        objectAllocator.EnableObjectStackAllocation();
+    }
+
+    objectAllocator.Run();
 
     /* Add any internal blocks/trees we may need */
 
