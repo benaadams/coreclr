@@ -1613,7 +1613,7 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
             }
 #endif // FEATURE_SIMD
 
-            if (pFieldInfo->fldSize == 0)
+            while (pFieldInfo->fldSize == 0)
             {
                 // Size of TYP_BLK, TYP_FUNC, TYP_VOID and TYP_STRUCT is zero.
                 // Early out if field type is other than TYP_STRUCT.
@@ -1661,14 +1661,15 @@ void Compiler::lvaCanPromoteStructType(CORINFO_CLASS_HANDLE    typeHnd,
                 // Though this would serve the purpose of promoting Span<T> containing ByReference<T>,
                 // this can be extended to other primitive types as long as they are aligned at their
                 // natural boundary.
-                if (fieldSize == 0 || fieldSize != TARGET_POINTER_SIZE || varTypeIsFloating(fieldVarType))
+                if ((fieldSize > 0) && ((fieldSize != TARGET_POINTER_SIZE) || varTypeIsFloating(fieldVarType)))
                 {
                     return;
                 }
 
                 // Retype the field as the type of the single field of the struct
-                pFieldInfo->fldType = fieldVarType;
-                pFieldInfo->fldSize = fieldSize;
+                pFieldInfo->fldType    = fieldVarType;
+                pFieldInfo->fldSize    = fieldSize;
+                pFieldInfo->fldTypeHnd = cHnd;
             }
 
             if ((pFieldInfo->fldOffset % pFieldInfo->fldSize) != 0)
