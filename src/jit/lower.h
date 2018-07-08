@@ -133,6 +133,7 @@ private:
 
     void LowerBlock(BasicBlock* block);
     GenTree* LowerNode(GenTree* node);
+    GenTree* LowerCopyElision(GenTree* node);
 
     void CheckVSQuirkStackPaddingNeeded(GenTreeCall* call);
 

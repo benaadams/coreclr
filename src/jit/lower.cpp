@@ -3204,6 +3204,74 @@ GenTree* Lowering::LowerIndirectNonvirtCall(GenTreeCall* call)
     return nullptr;
 }
 
+// This is the main entry point for Copy Elision.
+GenTree* Lowering::LowerCopyElision(GenTree* node)
+{
+    const int MAX_LOOKBACK_RANGE = 10;
+
+    assert(node != nullptr);
+    switch (node->gtOper)
+    {
+        case GT_LCL_VAR:
+            if ((node->gtFlags & GTF_VAR_DEATH) != 0)
+            {
+                GenTreeLclVarCommon& nodeLclVar = node->gtLclVarCommon;
+                unsigned int         lclNum     = nodeLclVar.gtLclNum;
+                LclVarDsc*           lclVarDsc  = &comp->lvaTable[lclNum];
+
+                if (!(lclVarDsc->lvIsParam || comp->fgExcludeFromSsa(lclNum) || lclVarDsc->lvIsRegArg))
+                {
+                    ValueNum valNum   = nodeLclVar.GetVN(VNK_Liberal);
+                    int      iter     = 0;
+                    GenTree* prevNode = node->gtPrev;
+
+                    while (prevNode != nullptr && iter < MAX_LOOKBACK_RANGE)
+                    {
+                        // Check types
+                        if (prevNode->gtOper == GT_LCL_VAR)
+                        {
+                            if (node->gtType != prevNode->gtType)
+                            {
+                                break;
+                            }
+
+                            GenTreeLclVarCommon& prevLclVar = prevNode->gtLclVarCommon;
+
+                            // Exclude self
+                            if (prevLclVar.gtLclNum != lclNum && prevLclVar.GetVN(VNK_Liberal) == valNum)
+                            {
+                                if (lclVarDsc->lvIsStructField)
+                                {
+                                    var_types varType = (var_types)comp->lvaTable[prevLclVar.gtLclNum].lvType;
+                                    if (!varTypeIsSmall(varType) || (varType == node->TypeGet()))
+                                    {
+                                        break;
+                                    }
+                                }
+
+                                //TODO: Merge tree to previous defination
+
+                                /*
+                                printf("\n*** CopyElision (last use)\n");
+                                comp->gtDispTree(node, nullptr, nullptr, true);
+                                comp->gtDispTree(prevNode, nullptr, nullptr, true);
+                                */
+                                break;
+                            }
+                        }
+                        prevNode = prevNode->gtPrev;
+                        iter++;
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    return node->gtPrev;
+}
+
 //------------------------------------------------------------------------
 // CreateReturnTrapSeq: Create a tree to perform a "return trap", used in PInvoke
 // epilogs to invoke a GC under a condition. The return trap checks some global
@@ -5424,6 +5492,19 @@ void Lowering::LowerBlock(BasicBlock* block)
     while (node != nullptr)
     {
         node = LowerNode(node);
+    }
+
+    // TODO-Review: EH successor/predecessor iteration seems broken.
+    if (block->bbCatchTyp == BBCT_FINALLY || block->bbCatchTyp == BBCT_FAULT)
+    {
+        assert(CheckBlock(comp, block));
+        return;
+    }
+
+    node = BlockRange().LastNode();
+    while (node != nullptr)
+    {
+        node = LowerCopyElision(node);
     }
 
     assert(CheckBlock(comp, block));
