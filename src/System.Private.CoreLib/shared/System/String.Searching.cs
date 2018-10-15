@@ -327,6 +327,17 @@ namespace System
                     return CompareInfo.Invariant.IndexOf(this, value, startIndex, count, GetCaseCompareOfComparisonCulture(comparisonType));
 
                 case StringComparison.Ordinal:
+                    if (count < value.Length)
+                        return -1;
+
+                    int position = SpanHelpers.IndexOf(
+                        ref Unsafe.As<char, byte>(ref Unsafe.Add(ref this.GetRawStringData(), startIndex)),
+                        (this.Length - startIndex) * sizeof(char),
+                        ref Unsafe.As<char, byte>(ref value.GetRawStringData()),
+                        value.Length * sizeof(char)
+                    );
+
+                    return position < 0 ? -1 : position * sizeof(char) + startIndex;
                 case StringComparison.OrdinalIgnoreCase:
                     return CompareInfo.Invariant.IndexOfOrdinal(this, value, startIndex, count, GetCaseCompareOfComparisonCulture(comparisonType) != CompareOptions.None);
 
