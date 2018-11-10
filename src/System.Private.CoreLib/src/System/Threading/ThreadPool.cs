@@ -22,6 +22,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Internal.Runtime.CompilerServices;
 using Microsoft.Win32;
+using static System.Threading.ThreadPoolWorkQueue;
 
 namespace System.Threading
 {
@@ -376,8 +377,32 @@ namespace System.Threading
             }
         }
 
+        internal readonly struct ThreadPoolQueueEntry
+        {
+            public readonly Action<object, object> _converter;
+            public readonly object _action; // null if _state is IThreadPoolWorkItem
+            public readonly object _state;
+            public readonly ExecutionContext _context;
+
+            public ThreadPoolQueueEntry(Action<object, object> converter, object action, object state, ExecutionContext context)
+            {
+                _converter = converter;
+                _action = action;
+                _state = state;
+                _context = context;
+            }
+
+            public ThreadPoolQueueEntry(object callback)
+            {
+                _action = null;
+                _converter = null;
+                _context = null;
+                _state = callback;
+            }
+        }
+
         internal bool loggingEnabled;
-        internal readonly ConcurrentQueue<object> workItems = new ConcurrentQueue<object>(); // SOS's ThreadPool command depends on this name
+        internal readonly ConcurrentQueue<ThreadPoolQueueEntry> workItems = new ConcurrentQueue<ThreadPoolQueueEntry>(); // SOS's ThreadPool command depends on this name
 
         private Internal.PaddingFor32 pad1;
 
@@ -436,16 +461,14 @@ namespace System.Threading
             }
         }
 
-        public void Enqueue(object callback, bool forceGlobal)
+        public void Enqueue(object callback)
         {
             Debug.Assert((callback is IThreadPoolWorkItem) ^ (callback is Task));
 
             if (loggingEnabled)
                 System.Diagnostics.Tracing.FrameworkEventSource.Log.ThreadPoolEnqueueWorkObject(callback);
 
-            ThreadPoolWorkQueueThreadLocals tl = null;
-            if (!forceGlobal)
-                tl = ThreadPoolWorkQueueThreadLocals.threadLocals;
+            ThreadPoolWorkQueueThreadLocals tl = ThreadPoolWorkQueueThreadLocals.threadLocals;
 
             if (null != tl)
             {
@@ -453,10 +476,27 @@ namespace System.Threading
             }
             else
             {
-                workItems.Enqueue(callback);
+                EnqueueGlobal(new ThreadPoolQueueEntry(callback));
             }
 
             EnsureThreadRequested();
+        }
+
+        public void EnqueueGlobal(in ThreadPoolQueueEntry workItem)
+        {
+            if (loggingEnabled)
+                LogGlobal(in workItem);
+
+            workItems.Enqueue(workItem);
+
+            EnsureThreadRequested();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void LogGlobal(in ThreadPoolQueueEntry workItem)
+        {
+            // Boxes
+           System.Diagnostics.Tracing.FrameworkEventSource.Log.ThreadPoolEnqueueWorkObject(workItem);
         }
 
         internal bool LocalFindAndPop(object callback)
@@ -465,34 +505,49 @@ namespace System.Threading
             return tl != null && tl.workStealingQueue.LocalFindAndPop(callback);
         }
 
-        public object Dequeue(ThreadPoolWorkQueueThreadLocals tl, ref bool missedSteal)
+        public bool TryDequeueGlobal(ReusableQueueUserWorkItemCallback reusableCallback, out object callback)
         {
-            WorkStealingQueue localWsq = tl.workStealingQueue;
-            object callback;
-
-            if ((callback = localWsq.LocalPop()) == null && // first try the local queue
-                !workItems.TryDequeue(out callback)) // then try the global queue
+            if (workItems.TryDequeue(out ThreadPoolQueueEntry workItem))
             {
-                // finally try to steal from another thread's local queue
-                WorkStealingQueue[] queues = WorkStealingQueueList.Queues;
-                int c = queues.Length;
-                Debug.Assert(c > 0, "There must at least be a queue for this thread.");
-                int maxIndex = c - 1;
-                int i = tl.random.Next(c);
-                while (c > 0)
+                if (workItem._action is null)
                 {
-                    i = (i < maxIndex) ? i + 1 : 0;
-                    WorkStealingQueue otherQueue = queues[i];
-                    if (otherQueue != localWsq && otherQueue.CanSteal)
-                    {
-                        callback = otherQueue.TrySteal(ref missedSteal);
-                        if (callback != null)
-                        {
-                            break;
-                        }
-                    }
-                    c--;
+                    callback = workItem._state;
                 }
+                else
+                {
+                    reusableCallback.Initalize(in workItem);
+                    callback = reusableCallback;
+                }
+            }
+            else
+            {
+                callback = null;
+            }
+
+            return callback != null;
+        }
+
+        public static object TryStealOtherLocal(WorkStealingQueue ownQueue, WorkStealingQueue[] queues, int start, ref bool missedSteal)
+        {
+            object callback = null;
+
+            int c = queues.Length;
+            Debug.Assert(c > 0, "There must at least be a queue for this thread.");
+            int maxIndex = c - 1;
+            int i = start;
+            while (c > 0)
+            {
+                i = (i < maxIndex) ? i + 1 : 0;
+                WorkStealingQueue otherQueue = queues[i];
+                if (otherQueue != ownQueue && otherQueue.CanSteal)
+                {
+                    callback = otherQueue.TrySteal(ref missedSteal);
+                    if (callback != null)
+                    {
+                        break;
+                    }
+                }
+                c--;
             }
 
             return callback;
@@ -543,11 +598,20 @@ namespace System.Threading
                 //
                 // Loop until our quantum expires.
                 //
+
+                WorkStealingQueue ownQueue = tl.workStealingQueue;
+                WorkStealingQueue[] queues = WorkStealingQueueList.Queues;
                 while ((Environment.TickCount - quantumStartTime) < ThreadPoolGlobals.TP_QUANTUM)
                 {
                     bool missedSteal = false;
-                    // Use operate on workItem local to try block so it can be enregistered 
-                    object workItem = outerWorkItem = workQueue.Dequeue(tl, ref missedSteal);
+
+                    object workItem;
+
+                    if ((workItem = ownQueue.LocalPop()) == null &&
+                        !workQueue.TryDequeueGlobal(tl.reusableCallback, out workItem))
+                    {
+                        workItem = TryStealOtherLocal(ownQueue, queues, start: tl.random.Next(queues.Length), ref missedSteal);
+                    }
 
                     if (workItem == null)
                     {
@@ -564,6 +628,7 @@ namespace System.Threading
                         // Tell the VM we're returning normally, not because Hill Climbing asked us to return.
                         return true;
                     }
+                    outerWorkItem = workItem;
 
                     if (workQueue.loggingEnabled)
                         System.Diagnostics.Tracing.FrameworkEventSource.Log.ThreadPoolDequeueWorkObject(workItem);
@@ -699,6 +764,7 @@ namespace System.Threading
         public readonly ThreadPoolWorkQueue workQueue;
         public readonly ThreadPoolWorkQueue.WorkStealingQueue workStealingQueue;
         public readonly Thread currentThread;
+        public readonly ReusableQueueUserWorkItemCallback reusableCallback = new ReusableQueueUserWorkItemCallback();
         public FastRandom random = new FastRandom(Thread.CurrentThread.ManagedThreadId); // mutable struct, do not copy or make readonly
 
         public ThreadPoolWorkQueueThreadLocals(ThreadPoolWorkQueue tpq)
@@ -719,7 +785,7 @@ namespace System.Threading
                     while ((cb = workStealingQueue.LocalPop()) != null)
                     {
                         Debug.Assert(null != cb);
-                        workQueue.Enqueue(cb, forceGlobal: true);
+                        workQueue.EnqueueGlobal(new ThreadPoolQueueEntry(cb));
                     }
                 }
 
@@ -1057,6 +1123,50 @@ namespace System.Threading
         }
     }
 
+    internal sealed class ReusableQueueUserWorkItemCallback : QueueUserWorkItemCallbackBase
+    {
+        private Action<object, object> _converter;
+        private object _callback; // SOS's ThreadPool command depends on this name
+        private object _state;
+        private ExecutionContext _context;
+
+        internal ReusableQueueUserWorkItemCallback() { }
+
+        internal void Initalize(in ThreadPoolQueueEntry workItem)
+        {
+#if DEBUG
+            GC.ReRegisterForFinalize(this);
+#endif
+            Debug.Assert(workItem._action != null);
+            Debug.Assert(workItem._converter != null);
+
+            _converter = workItem._converter;
+            _callback = workItem._action;
+            _state = workItem._state;
+            _context = workItem._context;
+        }
+
+        public override void Execute()
+        {
+            base.Execute();
+
+            object callback = _callback;
+            _callback = null;
+
+            if (_context != null)
+            {
+                ExecutionContext.RunForThreadPoolUnsafe(_converter, callback, _state, _context);
+            }
+            else
+            {
+                _converter(callback, _state);
+            }
+
+            _state = null;
+            _context = null;
+        }
+    }
+
     internal class _ThreadPoolWaitOrTimerCallback
     {
         private WaitOrTimerCallback _waitOrTimerCallback;
@@ -1296,14 +1406,33 @@ namespace System.Threading
             EnsureVMInitialized();
 
             ExecutionContext context = ExecutionContext.Capture();
+            if (context.IsDefault)
+            {
+                context = null;
+            }
 
-            object tpcallBack = (context == null || context.IsDefault) ?
-                new QueueUserWorkItemCallbackDefaultContext(callBack, state) :
-                (object)new QueueUserWorkItemCallback(callBack, state, context);
-
-            ThreadPoolGlobals.workQueue.Enqueue(tpcallBack, forceGlobal: true);
+            ThreadPoolGlobals.workQueue.EnqueueGlobal(new ThreadPoolQueueEntry(s_invokeWaitCallback, callBack, state, context));
 
             return true;
+        }
+
+        private readonly static Action<object, object> s_invokeWaitCallback = (cb, state) =>
+        {
+            Debug.Assert(cb.GetType() == typeof(WaitCallback));
+
+            Unsafe.As<WaitCallback>(cb).Invoke(state);
+        };
+
+        private class ActionConverter<TState>
+        {
+            public readonly static Action<object, object> s_invoke = (cb, state) => 
+            {
+                Debug.Assert(cb.GetType() == typeof(Action<TState>));
+                Debug.Assert(state.GetType() == typeof(TState));
+                Debug.Assert(default(TState) == null);
+
+                Unsafe.As<Action<TState>>(cb).Invoke(Unsafe.As<object, TState>(ref state));
+            };
         }
 
         public static bool QueueUserWorkItem<TState>(Action<TState> callBack, TState state, bool preferLocal)
@@ -1316,12 +1445,32 @@ namespace System.Threading
             EnsureVMInitialized();
 
             ExecutionContext context = ExecutionContext.Capture();
+            if (context.IsDefault)
+            {
+                context = null;
+            }
+
+
+            if (default(TState) == null && !preferLocal)
+            {
+                ThreadPoolGlobals.workQueue.EnqueueGlobal(
+                    new ThreadPoolQueueEntry(ActionConverter<TState>.s_invoke, callBack, (object)state, context));
+
+                return true;
+            }
 
             object tpcallBack = (context == null || context.IsDefault) ?
                 new QueueUserWorkItemCallbackDefaultContext<TState>(callBack, state) :
                 (object)new QueueUserWorkItemCallback<TState>(callBack, state, context);
 
-            ThreadPoolGlobals.workQueue.Enqueue(tpcallBack, forceGlobal: !preferLocal);
+            if (!preferLocal)
+            {
+                ThreadPoolGlobals.workQueue.EnqueueGlobal(new ThreadPoolQueueEntry(tpcallBack));
+            }
+            else
+            {
+                ThreadPoolGlobals.workQueue.Enqueue(tpcallBack);
+            }
 
             return true;
         }
@@ -1336,8 +1485,25 @@ namespace System.Threading
 
             EnsureVMInitialized();
 
-            ThreadPoolGlobals.workQueue.Enqueue(
-                new QueueUserWorkItemCallbackDefaultContext<TState>(callBack, state), forceGlobal: !preferLocal);
+            if (!preferLocal)
+            {
+                if (default(TState) == null)
+                {
+                    ThreadPoolGlobals.workQueue.EnqueueGlobal(
+                        new ThreadPoolQueueEntry(ActionConverter<TState>.s_invoke, callBack, (object)state, null));
+                }
+                else
+                {
+                    ThreadPoolGlobals.workQueue.EnqueueGlobal(
+                        new ThreadPoolQueueEntry(
+                            new QueueUserWorkItemCallbackDefaultContext<TState>(callBack, state)));
+                }
+            }
+            else
+            {
+                ThreadPoolGlobals.workQueue.Enqueue(
+                    new QueueUserWorkItemCallbackDefaultContext<TState>(callBack, state));
+            }
 
             return true;
         }
@@ -1351,9 +1517,7 @@ namespace System.Threading
 
             EnsureVMInitialized();
 
-            object tpcallBack = new QueueUserWorkItemCallbackDefaultContext(callBack, state);
-
-            ThreadPoolGlobals.workQueue.Enqueue(tpcallBack, forceGlobal: true);
+            ThreadPoolGlobals.workQueue.EnqueueGlobal(new ThreadPoolQueueEntry(s_invokeWaitCallback, callBack, state, null));
 
             return true;
         }
@@ -1381,7 +1545,15 @@ namespace System.Threading
 
             EnsureVMInitialized();
 
-            ThreadPoolGlobals.workQueue.Enqueue(callBack, forceGlobal: !preferLocal);
+            if (!preferLocal)
+            {
+                ThreadPoolGlobals.workQueue.EnqueueGlobal(new ThreadPoolQueueEntry(callBack));
+
+            }
+            else
+            {
+                ThreadPoolGlobals.workQueue.Enqueue(callBack);
+            }
         }
 
         // This method tries to take the target callback out of the current thread's queue.
@@ -1435,7 +1607,7 @@ namespace System.Threading
             }
         }
 
-        internal static IEnumerable<object> GetGloballyQueuedWorkItems() => ThreadPoolGlobals.workQueue.workItems;
+        internal static IEnumerable<object> GetGloballyQueuedWorkItems() => (IEnumerable<object>)ThreadPoolGlobals.workQueue.workItems;
 
         private static object[] ToObjectArray(IEnumerable<object> workitems)
         {
