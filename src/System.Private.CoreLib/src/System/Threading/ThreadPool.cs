@@ -408,6 +408,12 @@ namespace System.Threading
             ThreadPoolWorkQueueThreadLocals.threadLocals ??
             (ThreadPoolWorkQueueThreadLocals.threadLocals = new ThreadPoolWorkQueueThreadLocals(this));
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void RequestWorkerThread()
+        {
+            ThreadPool.RequestWorkerThread();
+        }
+
         internal void EnsureThreadRequested()
         {
             //
@@ -423,14 +429,14 @@ namespace System.Threading
                 int prev = Interlocked.CompareExchange(ref numOutstandingThreadRequests, count + 1, count);
                 if (prev == count)
                 {
-                    ThreadPool.RequestWorkerThread();
+                    RequestWorkerThread();
                     break;
                 }
                 count = prev;
             }
         }
 
-        internal void MarkThreadRequestSatisfied()
+        internal int MarkThreadRequestSatisfied()
         {
             //
             // The VM has called us, so one of our outstanding thread requests has been satisfied.
@@ -448,6 +454,8 @@ namespace System.Threading
                 }
                 count = prev;
             }
+
+            return count;
         }
 
         public void Enqueue(object callback, bool forceGlobal)
@@ -529,7 +537,8 @@ namespace System.Threading
             // Note that if this thread is aborted before we get a chance to request another one, the VM will
             // record a thread request on our behalf.  So we don't need to worry about getting aborted right here.
             //
-            outerWorkQueue.MarkThreadRequestSatisfied();
+            // Also note if we were the only thread request oustanding, as we'll need that later.
+            bool requestThreadIfItemFound = (outerWorkQueue.MarkThreadRequestSatisfied() == 0);
 
             // Has the desire for logging changed since the last time we entered?
             outerWorkQueue.loggingEnabled = FrameworkEventSource.Log.IsEnabled(EventLevel.Verbose, FrameworkEventSource.Keywords.ThreadPool | FrameworkEventSource.Keywords.ThreadTransfer);
@@ -582,11 +591,16 @@ namespace System.Threading
                     if (workQueue.loggingEnabled)
                         System.Diagnostics.Tracing.FrameworkEventSource.Log.ThreadPoolDequeueWorkObject(workItem);
 
-                    //
-                    // If we found work, there may be more work.  Ask for another thread so that the other work can be processed
-                    // in parallel.  Note that this will only ask for a max of #procs threads, so it's safe to call it for every dequeue.
-                    //
-                    workQueue.EnsureThreadRequested();
+                    // If we found work, there may be more work.
+                    if (requestThreadIfItemFound)
+                    {
+                        // If we were the only outstanding thread request, ask for another thread
+                        // so that the other work can be processed as we don't know how long the workItem will take to execute
+                        workQueue.EnsureThreadRequested();
+                        // Mark auto-requesting to false as we have already requested an additional thread to replace ourselves;
+                        // if we process extra work items that's a bouns, and doesn't need extra thread requests.
+                        requestThreadIfItemFound = false;
+                    }
 
                     //
                     // Execute the workitem outside of any finally blocks, so that it can be aborted if needed.
