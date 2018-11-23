@@ -517,8 +517,8 @@ namespace System.Threading
             // Note that if this thread is aborted before we get a chance to request another one, the VM will
             // record a thread request on our behalf.  So we don't need to worry about getting aborted right here.
             //
-            // Also note if we were the only thread request oustanding, as we'll need that later.
-            bool requestThreadIfItemFound = (outerWorkQueue.MarkThreadRequestSatisfied() == 0);
+            // Also note if we were the last or second last thread request oustanding, as we'll need that later.
+            bool requestThreadIfItemFound = (outerWorkQueue.MarkThreadRequestSatisfied() <= 1);
 
             // Has the desire for logging changed since the last time we entered?
             outerWorkQueue.loggingEnabled = FrameworkEventSource.Log.IsEnabled(EventLevel.Verbose, FrameworkEventSource.Keywords.ThreadPool | FrameworkEventSource.Keywords.ThreadTransfer);
