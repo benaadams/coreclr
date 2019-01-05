@@ -59,12 +59,6 @@ namespace System.Globalization
 
         private static unsafe int InvariantFindString(char* source, int sourceCount, char* value, int valueCount, bool ignoreCase, bool fromBeginning)
         {
-            int ctrSource = 0;  // index value into source
-            int ctrValue = 0;   // index value into value
-            char sourceChar;    // Character for case lookup in source
-            char valueChar;     // Character for case lookup in value
-            int lastSourceStart;
-
             Debug.Assert(source != null);
             Debug.Assert(value != null);
             Debug.Assert(sourceCount >= 0);
@@ -79,16 +73,17 @@ namespace System.Globalization
             {
                 return -1;
             }
-
+            
+            int ctrValue;   // index value into value
             if (fromBeginning)
             {
-                lastSourceStart = sourceCount - valueCount;
+                int lastSourceStart = sourceCount - valueCount;
                 if (ignoreCase)
                 {
                     char firstValueChar = InvariantToUpper(value[0]);
-                    for (ctrSource = 0; ctrSource <= lastSourceStart; ctrSource++)
+                    for (int ctrSource = 0; ctrSource <= lastSourceStart; ctrSource++)
                     {
-                        sourceChar = InvariantToUpper(source[ctrSource]);
+                        char sourceChar = InvariantToUpper(source[ctrSource]);
                         if (sourceChar != firstValueChar)
                         {
                             continue;
@@ -97,7 +92,7 @@ namespace System.Globalization
                         for (ctrValue = 1; ctrValue < valueCount; ctrValue++)
                         {
                             sourceChar = InvariantToUpper(source[ctrSource + ctrValue]);
-                            valueChar = InvariantToUpper(value[ctrValue]);
+                            char valueChar = InvariantToUpper(value[ctrValue]);
 
                             if (sourceChar != valueChar)
                             {
@@ -114,9 +109,9 @@ namespace System.Globalization
                 else
                 {
                     char firstValueChar = value[0];
-                    for (ctrSource = 0; ctrSource <= lastSourceStart; ctrSource++)
+                    for (int ctrSource = 0; ctrSource <= lastSourceStart; ctrSource++)
                     {
-                        sourceChar = source[ctrSource];
+                        char sourceChar = source[ctrSource];
                         if (sourceChar != firstValueChar)
                         {
                             continue;
@@ -125,7 +120,7 @@ namespace System.Globalization
                         for (ctrValue = 1; ctrValue < valueCount; ctrValue++)
                         {
                             sourceChar = source[ctrSource + ctrValue];
-                            valueChar = value[ctrValue];
+                            char valueChar = value[ctrValue];
 
                             if (sourceChar != valueChar)
                             {
@@ -142,13 +137,13 @@ namespace System.Globalization
             }
             else
             {
-                lastSourceStart = sourceCount - valueCount;
+                int lastSourceStart = sourceCount - valueCount;
                 if (ignoreCase)
                 {
                     char firstValueChar = InvariantToUpper(value[0]);
-                    for (ctrSource = lastSourceStart; ctrSource >= 0; ctrSource--)
+                    for (int ctrSource = lastSourceStart; ctrSource >= 0; ctrSource--)
                     {
-                        sourceChar = InvariantToUpper(source[ctrSource]);
+                        char sourceChar = InvariantToUpper(source[ctrSource]);
                         if (sourceChar != firstValueChar)
                         {
                             continue;
@@ -156,7 +151,7 @@ namespace System.Globalization
                         for (ctrValue = 1; ctrValue < valueCount; ctrValue++)
                         {
                             sourceChar = InvariantToUpper(source[ctrSource + ctrValue]);
-                            valueChar = InvariantToUpper(value[ctrValue]);
+                            char valueChar = InvariantToUpper(value[ctrValue]);
 
                             if (sourceChar != valueChar)
                             {
@@ -173,9 +168,9 @@ namespace System.Globalization
                 else
                 {
                     char firstValueChar = value[0];
-                    for (ctrSource = lastSourceStart; ctrSource >= 0; ctrSource--)
+                    for (int ctrSource = lastSourceStart; ctrSource >= 0; ctrSource--)
                     {
-                        sourceChar = source[ctrSource];
+                        char sourceChar = source[ctrSource];
                         if (sourceChar != firstValueChar)
                         {
                             continue;
@@ -184,7 +179,7 @@ namespace System.Globalization
                         for (ctrValue = 1; ctrValue < valueCount; ctrValue++)
                         {
                             sourceChar = source[ctrSource + ctrValue];
-                            valueChar = value[ctrValue];
+                            char valueChar = value[ctrValue];
 
                             if (sourceChar != valueChar)
                             {

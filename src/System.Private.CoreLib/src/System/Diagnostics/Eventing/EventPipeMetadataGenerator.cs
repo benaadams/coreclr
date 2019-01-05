@@ -65,7 +65,7 @@ namespace System.Diagnostics.Tracing
             uint version,
             EventParameterInfo[] parameters)
         {
-            byte[] metadata = null;
+            byte[] metadata;
             try
             {
                 // eventID          : 4 bytes

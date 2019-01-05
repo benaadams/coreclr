@@ -33,18 +33,18 @@ namespace System.Reflection
             if (AssemblyLoadContext.Default != AssemblyLoadContext.GetLoadContext(requestingAssembly))
                 return null;
 
-            // Get the path where requesting assembly lives and check if it is in the list
-            // of assemblies for which LoadFrom was invoked.
-            bool fRequestorLoadedViaLoadFrom = false;
             string requestorPath = Path.GetFullPath(requestingAssembly.Location);
             if (string.IsNullOrEmpty(requestorPath))
                 return null;
 
-            lock(s_syncLoadFromAssemblyList)
+            // Get the path where requesting assembly lives and check if it is in the list
+            // of assemblies for which LoadFrom was invoked.
+            bool fRequestorLoadedViaLoadFrom;
+            lock (s_syncLoadFromAssemblyList)
             {
                 fRequestorLoadedViaLoadFrom = s_LoadFromAssemblyList.Contains(requestorPath);
             }
-            
+
             // If the requestor assembly was not loaded using LoadFrom, exit.
             if (!fRequestorLoadedViaLoadFrom)
                 return null;
@@ -56,7 +56,7 @@ namespace System.Reflection
             string requestedAssemblyPath = Path.Combine(Path.GetDirectoryName(requestorPath), requestedAssemblyName.Name+".dll");
 
             // Load the dependency via LoadFrom so that it goes through the same path of being in the LoadFrom list.
-            Assembly resolvedAssembly = null;
+            Assembly resolvedAssembly;
 
             try
             {

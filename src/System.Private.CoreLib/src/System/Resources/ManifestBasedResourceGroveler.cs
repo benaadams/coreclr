@@ -56,9 +56,7 @@ namespace System.Resources
             Debug.Assert(culture != null, "culture shouldn't be null; check caller");
             Debug.Assert(localResourceSets != null, "localResourceSets shouldn't be null; check caller");
 
-            ResourceSet rs = null;
-            Stream stream = null;
-            RuntimeAssembly satellite = null;
+            RuntimeAssembly satellite;
 
             // 1. Fixups for ultimate fallbacks
             CultureInfo lookForCulture = UltimateFallbackFixup(culture);
@@ -88,6 +86,8 @@ namespace System.Resources
             // around because lookForCulture may be modified from originally requested culture above.
             string fileName = _mediator.GetResourceFileName(lookForCulture);
 
+            Stream stream = null;
+            ResourceSet rs = null;
             // 3. If we identified an assembly to search; look in manifest resource stream for resource file
             if (satellite != null)
             {

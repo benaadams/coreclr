@@ -65,7 +65,7 @@ namespace System.Text
                       SR.ArgumentOutOfRange_IndexCountBuffer);
 
             // Just call the pointer version
-            int result = -1;
+            int result;
             fixed (char* pChars = &MemoryMarshal.GetReference((Span<char>)chars))
             {
                 result = GetByteCount(pChars + index, count, flush);
