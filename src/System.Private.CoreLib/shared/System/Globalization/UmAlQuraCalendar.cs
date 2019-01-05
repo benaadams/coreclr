@@ -313,15 +313,12 @@ namespace System.Globalization
             Debug.Assert((HijriYear >= MinCalendarYear) && (HijriYear <= MaxCalendarYear), "Hijri year is out of range.");
             Debug.Assert(HijriMonth >= 1, "Hijri month is out of range.");
             Debug.Assert(HijriDay >= 1, "Hijri day is out of range.");
-            int index, b, nDays = HijriDay - 1;
-            DateTime dt;
+            int nDays = HijriDay - 1;
 
+            int index = HijriYear - MinCalendarYear;
+            DateTime dt = s_hijriYearInfo[index].GregorianDate;
 
-            index = HijriYear - MinCalendarYear;
-            dt = s_hijriYearInfo[index].GregorianDate;
-
-
-            b = s_hijriYearInfo[index].HijriMonthsLengthFlags;
+            int b = s_hijriYearInfo[index].HijriMonthsLengthFlags;
 
             for (int m = 1; m < HijriMonth; m++)
             {
@@ -403,17 +400,12 @@ namespace System.Globalization
         ============================================================================*/
         private static void ConvertGregorianToHijri(DateTime time, ref int HijriYear, ref int HijriMonth, ref int HijriDay)
         {
-            int index, b, DaysPerThisMonth;
-            double nDays;
-            TimeSpan ts;
-            int yh1 = 0, mh1 = 0, dh1 = 0;
-
             Debug.Assert((time.Ticks >= minDate.Ticks) && (time.Ticks <= maxDate.Ticks), "Gregorian date is out of range.");
 
             // Find the index where we should start our search by quessing the Hijri year that we will be in HijriYearInfo.
             // A Hijri year is 354 or 355 days.  Use 355 days so that we will search from a lower index.
 
-            index = (int)((time.Ticks - minDate.Ticks) / Calendar.TicksPerDay) / 355;
+            int index = (int)((time.Ticks - minDate.Ticks) / Calendar.TicksPerDay) / 355;
             do
             {
             } while (time.CompareTo(s_hijriYearInfo[++index].GregorianDate) > 0); //while greater
@@ -423,14 +415,13 @@ namespace System.Globalization
                 index--;
             }
 
-            ts = time.Subtract(s_hijriYearInfo[index].GregorianDate);
-            yh1 = index + MinCalendarYear;
+            TimeSpan ts = time.Subtract(s_hijriYearInfo[index].GregorianDate);
+            int yh1 = index + MinCalendarYear;
 
-            mh1 = 1;
-            dh1 = 1;
-            nDays = ts.TotalDays;
-            b = s_hijriYearInfo[index].HijriMonthsLengthFlags;
-            DaysPerThisMonth = 29 + (b & 1);
+            int mh1 = 1;
+            double nDays = ts.TotalDays;
+            int b = s_hijriYearInfo[index].HijriMonthsLengthFlags;
+            int DaysPerThisMonth = 29 + (b & 1);
 
             while (nDays >= DaysPerThisMonth)
             {
@@ -439,7 +430,8 @@ namespace System.Globalization
                 DaysPerThisMonth = 29 + (b & 1);
                 mh1++;
             }
-            dh1 += (int)nDays;
+
+            int dh1 = 1 + (int)nDays;
 
             HijriDay = dh1;
             HijriMonth = mh1;
@@ -618,12 +610,10 @@ namespace System.Globalization
 
         internal static int RealGetDaysInYear(int year)
         {
-            int days = 0, b;
-
             Debug.Assert((year >= MinCalendarYear) && (year <= MaxCalendarYear), "Hijri year is out of range.");
 
-            b = s_hijriYearInfo[year - MinCalendarYear].HijriMonthsLengthFlags;
-
+            int b = s_hijriYearInfo[year - MinCalendarYear].HijriMonthsLengthFlags;
+            int days = 0;
             for (int m = 1; m <= 12; m++)
             {
                 days = days + 29 + (b & 1);   /* Add the months lengths before mh */

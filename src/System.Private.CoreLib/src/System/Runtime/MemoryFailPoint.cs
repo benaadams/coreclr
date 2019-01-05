@@ -314,9 +314,8 @@ namespace System.Runtime
 
         private static void CheckForAvailableMemory(out ulong availPageFile, out ulong totalAddressSpaceFree)
         {
-            bool r;
             Win32Native.MEMORYSTATUSEX memory = new Win32Native.MEMORYSTATUSEX();
-            r = Win32Native.GlobalMemoryStatusEx(ref memory);
+            bool r = Win32Native.GlobalMemoryStatusEx(ref memory);
             if (!r)
                 throw Win32Marshal.GetExceptionForLastWin32Error();
             availPageFile = memory.availPageFile;

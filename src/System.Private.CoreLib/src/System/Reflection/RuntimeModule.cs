@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Security;
 using System.Globalization;
 
 namespace System.Reflection
@@ -147,11 +146,8 @@ namespace System.Reflection
                 throw new ArgumentOutOfRangeException(nameof(metadataToken),
                     string.Format(CultureInfo.CurrentUICulture, SR.Format(SR.Argument_InvalidToken, tk, this)));
 
-            int tkDeclaringType;
-            string fieldName;
-
-            fieldName = MetadataImport.GetName(tk).ToString();
-            tkDeclaringType = MetadataImport.GetParentToken(tk);
+            string fieldName = MetadataImport.GetName(tk).ToString();
+            int tkDeclaringType = MetadataImport.GetParentToken(tk);
 
             Type declaringType = ResolveType(tkDeclaringType, genericTypeArguments, genericMethodArguments);
 
@@ -486,8 +482,7 @@ namespace System.Reflection
             {
                 unsafe
                 {
-                    Guid mvid;
-                    MetadataImport.GetScopeProps(out mvid);
+                    MetadataImport.GetScopeProps(out Guid mvid);
                     return mvid;
                 }
             }

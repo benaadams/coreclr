@@ -490,11 +490,9 @@ namespace System.Collections
                 throw new ArgumentNullException(nameof(key), SR.ArgumentNull_Key);
             }
 
-            uint seed;
-            uint incr;
             // Take a snapshot of buckets, in case another thread resizes table
             bucket[] lbuckets = _buckets;
-            uint hashcode = InitHash(key, lbuckets.Length, out seed, out incr);
+            uint hashcode = InitHash(key, lbuckets.Length, out uint seed, out uint incr);
             int ntry = 0;
 
             bucket b;
@@ -652,13 +650,10 @@ namespace System.Collections
                     throw new ArgumentNullException(nameof(key), SR.ArgumentNull_Key);
                 }
 
-                uint seed;
-                uint incr;
-
 
                 // Take a snapshot of buckets, in case another thread does a resize
                 bucket[] lbuckets = _buckets;
-                uint hashcode = InitHash(key, lbuckets.Length, out seed, out incr);
+                uint hashcode = InitHash(key, lbuckets.Length, out uint seed, out uint incr);
                 int ntry = 0;
 
                 bucket b;
@@ -900,11 +895,9 @@ namespace System.Collections
                 rehash();
             }
 
-            uint seed;
-            uint incr;
             // Assume we only have one thread writing concurrently.  Modify
             // buckets to contain new data, as long as we insert in the right order.
-            uint hashcode = InitHash(key, _buckets.Length, out seed, out incr);
+            uint hashcode = InitHash(key, _buckets.Length, out uint seed, out uint incr);
             int ntry = 0;
             int emptySlotNumber = -1; // We use the empty slot number to cache the first empty slot. We chose to reuse slots
             // create by remove that have the collision bit set over using up new slots.
@@ -1036,10 +1029,8 @@ namespace System.Collections
 
             Debug.Assert(!_isWriterInProgress, "Race condition detected in usages of Hashtable - multiple threads appear to be writing to a Hashtable instance simultaneously!  Don't do that - use Hashtable.Synchronized.");
 
-            uint seed;
-            uint incr;
             // Assuming only one concurrent writer, write directly into buckets.
-            uint hashcode = InitHash(key, _buckets.Length, out seed, out incr);
+            uint hashcode = InitHash(key, _buckets.Length, out uint seed, out uint incr);
             int ntry = 0;
 
             bucket b;
@@ -1161,8 +1152,7 @@ namespace System.Collections
                 return;
             }
 
-            SerializationInfo siInfo;
-            HashHelpers.SerializationInfoTable.TryGetValue(this, out siInfo);
+            HashHelpers.SerializationInfoTable.TryGetValue(this, out SerializationInfo siInfo);
 
             if (siInfo == null)
             {

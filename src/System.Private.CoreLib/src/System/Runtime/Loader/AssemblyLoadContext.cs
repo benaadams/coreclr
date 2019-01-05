@@ -498,8 +498,7 @@ namespace System.Runtime.Loader
                 _isProcessExiting = true;
                 foreach (var alcAlive in ContextsToUnload)
                 {
-                    AssemblyLoadContext alc;
-                    if (alcAlive.Value.TryGetTarget(out alc))
+                    if (alcAlive.Value.TryGetTarget(out AssemblyLoadContext alc))
                     {
                         // Should we use a try/catch?
                         alc.InitiateUnload();

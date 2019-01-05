@@ -140,25 +140,21 @@ namespace System.Globalization
 
         private long DaysUpToHijriYear(int HijriYear)
         {
-            long NumDays;           // number of absolute days
-            int NumYear30;         // number of years up to current 30 year cycle
-            int NumYearsLeft;      // number of years into 30 year cycle
-
             //
             //  Compute the number of years up to the current 30 year cycle.
             //
-            NumYear30 = ((HijriYear - 1) / 30) * 30;
+            int NumYear30 = ((HijriYear - 1) / 30) * 30;
 
             //
             //  Compute the number of years left.  This is the number of years
             //  into the 30 year cycle for the given year.
             //
-            NumYearsLeft = HijriYear - NumYear30 - 1;
+            int NumYearsLeft = HijriYear - NumYear30 - 1;
 
             //
             //  Compute the number of absolute days up to the given year.
             //
-            NumDays = ((NumYear30 * 10631L) / 30L) + 227013L;
+            long NumDays = ((NumYear30 * 10631L) / 30L) + 227013L;           // number of absolute days
             while (NumYearsLeft > 0)
             {
                 // Common year is 354 days, and leap year is 355 days.
@@ -278,18 +274,13 @@ namespace System.Globalization
 
         internal virtual int GetDatePart(long ticks, int part)
         {
-            int HijriYear;                   // Hijri year
-            int HijriMonth;                  // Hijri month
-            int HijriDay;                    // Hijri day
-            long NumDays;                 // The calculation buffer in number of days.
-
             CheckTicksRange(ticks);
 
             //
             //  Get the absolute date.  The absolute date is the number of days from January 1st, 1 A.D.
             //  1/1/0001 is absolute date 1.
             //
-            NumDays = ticks / GregorianCalendar.TicksPerDay + 1;
+            long NumDays = ticks / GregorianCalendar.TicksPerDay + 1; // The calculation buffer in number of days.
 
             //
             //  See how much we need to backup or advance
@@ -299,7 +290,7 @@ namespace System.Globalization
             //
             //  Calculate the appromixate Hijri Year from this magic formula.
             //
-            HijriYear = (int)(((NumDays - 227013) * 30) / 10631) + 1;
+            int HijriYear = (int)(((NumDays - 227013) * 30) / 10631) + 1; // Hijri year
 
             long daysToHijriYear = DaysUpToHijriYear(HijriYear);            // The absolute date for HijriYear
             long daysOfHijriYear = GetDaysInYear(HijriYear, CurrentEra);    // The number of days for (HijriYear+1) year.
@@ -331,7 +322,7 @@ namespace System.Globalization
             //  Calculate the Hijri Month.
             //
 
-            HijriMonth = 1;
+            int HijriMonth = 1; // Hijri month
             NumDays -= daysToHijriYear;
 
             if (part == DatePartDayOfYear)
@@ -353,7 +344,7 @@ namespace System.Globalization
             //
             //  Calculate the Hijri Day.
             //
-            HijriDay = (int)(NumDays - HijriMonthDays[HijriMonth - 1]);
+            int HijriDay = (int)(NumDays - HijriMonthDays[HijriMonth - 1]); // Hijri day
 
             if (part == DatePartDay)
             {

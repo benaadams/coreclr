@@ -723,10 +723,7 @@ namespace System.Globalization
 
             for (int i = 0; i < str.Length; i++)
             {
-                UnicodeCategory charType;
-                int charLen;
-
-                charType = CharUnicodeInfo.InternalGetUnicodeCategory(str, i, out charLen);
+                UnicodeCategory charType = CharUnicodeInfo.InternalGetUnicodeCategory(str, i, out int charLen);
                 if (char.CheckLetter(charType))
                 {
                     // Special case to check for Dutch specific titlecasing with "IJ" characters 

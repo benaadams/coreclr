@@ -2,15 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//
-
 using System;
-using System.Security;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
 using Internal.Runtime.CompilerServices;
 
 namespace System.Runtime.InteropServices.WindowsRuntime
@@ -60,11 +54,10 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         // T this[int index] { get }
         internal T Indexer_Get_Variance<T>(int index) where T : class
         {
-            bool fUseString;
             Delegate target = System.StubHelpers.StubHelpers.GetTargetForAmbiguousVariantCall(
                 this,
                 typeof(IReadOnlyList<T>).TypeHandle.Value,
-                out fUseString);
+                out bool fUseString);
 
             if (target != null)
             {

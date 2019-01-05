@@ -162,11 +162,10 @@ namespace System.Resources
 
         public virtual string GetString(string name, bool ignoreCase)
         {
-            object obj;
             string s;
 
             // Case-sensitive lookup
-            obj = GetObjectInternal(name);
+            object obj = GetObjectInternal(name);
             try
             {
                 s = (string)obj;

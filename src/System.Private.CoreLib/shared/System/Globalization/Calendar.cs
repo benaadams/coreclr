@@ -508,10 +508,6 @@ namespace System.Globalization
 
         private int GetWeekOfYearFullDays(DateTime time, int firstDayOfWeek, int fullDays)
         {
-            int dayForJan1;
-            int offset;
-            int day;
-
             int dayOfYear = GetDayOfYear(time) - 1; // Make the day of year to be 0-based, so that 1/1 is day 0.
             //
             // Calculate the number of days between the first day of year (1/1) and the first day of the week.
@@ -540,10 +536,10 @@ namespace System.Globalization
             // Day of week is 0-based.
             // Get the day of week for 1/1.  This can be derived from the day of week of the target day.
             // Note that we can get a negative value.  It's ok since we are going to make it a positive value when calculating the offset.
-            dayForJan1 = (int)GetDayOfWeek(time) - (dayOfYear % 7);
+            int dayForJan1 = (int)GetDayOfWeek(time) - (dayOfYear % 7);
 
             // Now, calculate the offset.  Subtract the first day of week from the dayForJan1.  And make it a positive value.
-            offset = (firstDayOfWeek - dayForJan1 + 14) % 7;
+            int offset = (firstDayOfWeek - dayForJan1 + 14) % 7;
             if (offset != 0 && offset >= fullDays)
             {
                 //
@@ -555,7 +551,7 @@ namespace System.Globalization
             //
             // Calculate the day of year for specified time by taking offset into account.
             //
-            day = dayOfYear - offset;
+            int day = dayOfYear - offset;
             if (day >= 0)
             {
                 //

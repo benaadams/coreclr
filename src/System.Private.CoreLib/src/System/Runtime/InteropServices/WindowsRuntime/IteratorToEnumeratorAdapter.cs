@@ -2,15 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
-using System.Security;
 using Internal.Runtime.CompilerServices;
 
 namespace System.Runtime.InteropServices.WindowsRuntime
@@ -45,11 +40,10 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         // Exception/array/delegate via co-variance.
         internal IEnumerator<T> GetEnumerator_Variance_Stub<T>() where T : class
         {
-            bool fUseString;
             Delegate target = System.StubHelpers.StubHelpers.GetTargetForAmbiguousVariantCall(
                 this,
                 typeof(IEnumerable<T>).TypeHandle.Value,
-                out fUseString);
+                out bool fUseString);
 
             if (target != null)
             {

@@ -198,15 +198,13 @@ namespace System.Globalization
 
         internal int GetDatePart(long ticks, int part)
         {
-            long NumDays;                 // The calculation buffer in number of days.
-
             CheckTicksRange(ticks);
 
             //
             //  Get the absolute date.  The absolute date is the number of days from January 1st, 1 A.D.
             //  1/1/0001 is absolute date 1.
             //
-            NumDays = ticks / GregorianCalendar.TicksPerDay + 1;
+            long NumDays = ticks / GregorianCalendar.TicksPerDay + 1; // The calculation buffer in number of days.
 
             //
             //  Calculate the appromixate Persian Year.

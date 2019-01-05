@@ -41,12 +41,10 @@ namespace System.Reflection
             m_reflectedTypeCache = reflectedTypeCache;
             m_declaringType = declaredType;
 
-            ConstArray sig;
-            scope.GetPropertyProps(tkProperty, out m_utf8name, out m_flags, out sig);
+            scope.GetPropertyProps(tkProperty, out m_utf8name, out m_flags, out ConstArray sig);
 
-            RuntimeMethodInfo dummy;
             Associates.AssignAssociates(scope, tkProperty, declaredType, reflectedTypeCache.GetRuntimeType(),
-                out dummy, out dummy, out dummy,
+                out RuntimeMethodInfo dummy, out dummy, out dummy,
                 out m_getterMethod, out m_setterMethod, out m_otherMethod,
                 out isPrivate, out m_bindingFlags);
         }
@@ -71,12 +69,8 @@ namespace System.Reflection
             {
                 if (m_signature == null)
                 {
-                    PropertyAttributes flags;
-                    ConstArray sig;
-
-                    void* name;
                     GetRuntimeModule().MetadataImport.GetPropertyProps(
-                        m_token, out name, out flags, out sig);
+                        m_token, out void* name, out PropertyAttributes flags, out ConstArray sig);
 
                     m_signature = new Signature(sig.Signature.ToPointer(), (int)sig.Length, m_declaringType);
                 }

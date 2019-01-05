@@ -3563,9 +3563,7 @@ namespace System.Threading.Tasks
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.scheduler);
             }
 
-            TaskCreationOptions creationOptions;
-            InternalTaskOptions internalOptions;
-            CreationOptionsFromContinuationOptions(continuationOptions, out creationOptions, out internalOptions);
+            CreationOptionsFromContinuationOptions(continuationOptions, out TaskCreationOptions creationOptions, out InternalTaskOptions internalOptions);
 
             Task continuationTask = new ContinuationTaskFromTask(
                 this, continuationAction, null,
@@ -3753,9 +3751,7 @@ namespace System.Threading.Tasks
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.scheduler);
             }
 
-            TaskCreationOptions creationOptions;
-            InternalTaskOptions internalOptions;
-            CreationOptionsFromContinuationOptions(continuationOptions, out creationOptions, out internalOptions);
+            CreationOptionsFromContinuationOptions(continuationOptions, out TaskCreationOptions creationOptions, out InternalTaskOptions internalOptions);
 
             Task continuationTask = new ContinuationTaskFromTask(
                 this, continuationAction, state,
@@ -3956,9 +3952,7 @@ namespace System.Threading.Tasks
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.scheduler);
             }
 
-            TaskCreationOptions creationOptions;
-            InternalTaskOptions internalOptions;
-            CreationOptionsFromContinuationOptions(continuationOptions, out creationOptions, out internalOptions);
+            CreationOptionsFromContinuationOptions(continuationOptions, out TaskCreationOptions creationOptions, out InternalTaskOptions internalOptions);
 
             Task<TResult> continuationTask = new ContinuationResultTaskFromTask<TResult>(
                 this, continuationFunction, null,
@@ -4163,9 +4157,7 @@ namespace System.Threading.Tasks
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.scheduler);
             }
 
-            TaskCreationOptions creationOptions;
-            InternalTaskOptions internalOptions;
-            CreationOptionsFromContinuationOptions(continuationOptions, out creationOptions, out internalOptions);
+            CreationOptionsFromContinuationOptions(continuationOptions, out TaskCreationOptions creationOptions, out InternalTaskOptions internalOptions);
 
             Task<TResult> continuationTask = new ContinuationResultTaskFromTask<TResult>(
                 this, continuationFunction, state,
@@ -6204,8 +6196,7 @@ namespace System.Threading.Tasks
         //Do not remove: VS debugger calls this API directly using func-eval to populate data in the tasks window
         private static Task GetActiveTaskFromId(int taskId)
         {
-            Task task = null;
-            s_currentActiveTasks.TryGetValue(taskId, out task);
+            s_currentActiveTasks.TryGetValue(taskId, out Task task);
             return task;
         }
     }

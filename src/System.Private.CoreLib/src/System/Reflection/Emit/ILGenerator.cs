@@ -223,10 +223,6 @@ namespace System.Reflection.Emit
             // BakeByteArray is an internal function designed to be called by MethodBuilder to do
             // all of the fixups and return a new byte array representing the byte stream with labels resolved, etc.
 
-            int newSize;
-            int updateAddr;
-            byte[] newBytes;
-
             if (m_currExcStackCount != 0)
             {
                 throw new ArgumentException(SR.Argument_UnclosedExceptionBlock);
@@ -235,10 +231,10 @@ namespace System.Reflection.Emit
                 return null;
 
             //Calculate the size of the new array.
-            newSize = m_length;
+            int newSize = m_length;
 
             //Allocate space for the new array.
-            newBytes = new byte[newSize];
+            byte[] newBytes = new byte[newSize];
 
             //Copy the data from the old array
             Buffer.BlockCopy(m_ILStream, 0, newBytes, 0, newSize);
@@ -248,7 +244,7 @@ namespace System.Reflection.Emit
             //replacing them with their proper values.
             for (int i = 0; i < m_fixupCount; i++)
             {
-                updateAddr = GetLabelPos(m_fixupData[i].m_fixupLabel) - (m_fixupData[i].m_fixupPos + m_fixupData[i].m_fixupInstSize);
+                int updateAddr = GetLabelPos(m_fixupData[i].m_fixupLabel) - (m_fixupData[i].m_fixupPos + m_fixupData[i].m_fixupInstSize);
 
                 //Handle single byte instructions
                 //Throw an exception if they're trying to store a jump in a single byte instruction that doesn't fit.
@@ -281,7 +277,6 @@ namespace System.Reflection.Emit
 
         internal __ExceptionInfo[] GetExceptions()
         {
-            __ExceptionInfo[] temp;
             if (m_currExcStackCount != 0)
             {
                 throw new NotSupportedException(SR.Argument_UnclosedExceptionBlock);
@@ -292,7 +287,7 @@ namespace System.Reflection.Emit
                 return null;
             }
 
-            temp = new __ExceptionInfo[m_exceptionCount];
+            __ExceptionInfo[] temp = new __ExceptionInfo[m_exceptionCount];
             Array.Copy(m_exceptions, 0, temp, 0, m_exceptionCount);
             SortExceptions(temp);
             return temp;
@@ -492,7 +487,6 @@ namespace System.Reflection.Emit
             Type returnType, Type[] parameterTypes, Type[] optionalParameterTypes)
         {
             int stackchange = 0;
-            SignatureHelper sig;
             if (optionalParameterTypes != null)
             {
                 if ((callingConvention & CallingConventions.VarArgs) == 0)
@@ -503,10 +497,10 @@ namespace System.Reflection.Emit
             }
 
             ModuleBuilder modBuilder = (ModuleBuilder)m_methodBuilder.Module;
-            sig = GetMemberRefSignature(callingConvention,
-                                        returnType,
-                                        parameterTypes,
-                                        optionalParameterTypes);
+            SignatureHelper sig = GetMemberRefSignature(callingConvention,
+                returnType,
+                parameterTypes,
+                optionalParameterTypes);
 
             EnsureCapacity(7);
             Emit(OpCodes.Calli);
@@ -533,11 +527,7 @@ namespace System.Reflection.Emit
 
         public virtual void EmitCalli(OpCode opcode, CallingConvention unmanagedCallConv, Type returnType, Type[] parameterTypes)
         {
-            int stackchange = 0;
             int cParams = 0;
-            int i;
-            SignatureHelper sig;
-
             ModuleBuilder modBuilder = (ModuleBuilder)m_methodBuilder.Module;
 
             if (parameterTypes != null)
@@ -545,19 +535,20 @@ namespace System.Reflection.Emit
                 cParams = parameterTypes.Length;
             }
 
-            sig = SignatureHelper.GetMethodSigHelper(
+            SignatureHelper sig = SignatureHelper.GetMethodSigHelper(
                 modBuilder,
                 unmanagedCallConv,
                 returnType);
 
             if (parameterTypes != null)
             {
-                for (i = 0; i < cParams; i++)
+                for (int i = 0; i < cParams; i++)
                 {
                     sig.AddArgument(parameterTypes[i]);
                 }
             }
 
+            int stackchange = 0;
             // If there is a non-void return type, push one.
             if (returnType != typeof(void))
                 stackchange++;
@@ -1191,7 +1182,6 @@ namespace System.Reflection.Emit
             // one of the types for which Console.WriteLine implements overloads. (e.g.
             // we do *not* call ToString on the locals.
 
-            object cls;
             if (m_methodBuilder == null)
             {
                 throw new ArgumentException(SR.InvalidOperation_BadILGeneratorUsage);
@@ -1201,7 +1191,7 @@ namespace System.Reflection.Emit
             Emit(OpCodes.Call, prop);
             Emit(OpCodes.Ldloc, localBuilder);
             Type[] parameterTypes = new Type[1];
-            cls = localBuilder.LocalType;
+            object cls = localBuilder.LocalType;
             if (cls is TypeBuilder || cls is EnumBuilder)
             {
                 throw new ArgumentException(SR.NotSupported_OutputStreamUsingTypeBuilder);
@@ -1223,8 +1213,6 @@ namespace System.Reflection.Emit
             // one of the types for which Console.WriteLine implements overloads. (e.g.
             // we do *not* call ToString on the fields.
 
-            object cls;
-
             if (fld == null)
             {
                 throw new ArgumentNullException(nameof(fld));
@@ -1243,7 +1231,7 @@ namespace System.Reflection.Emit
                 Emit(OpCodes.Ldfld, fld);
             }
             Type[] parameterTypes = new Type[1];
-            cls = fld.FieldType;
+            object cls = fld.FieldType;
             if (cls is TypeBuilder || cls is EnumBuilder)
             {
                 throw new NotSupportedException(SR.NotSupported_OutputStreamUsingTypeBuilder);
@@ -1270,8 +1258,6 @@ namespace System.Reflection.Emit
             // Declare a local of type "local". The current active lexical scope
             // will be the scope that local will live.
 
-            LocalBuilder localBuilder;
-
             MethodBuilder methodBuilder = m_methodBuilder as MethodBuilder;
             if (methodBuilder == null)
                 throw new NotSupportedException();
@@ -1295,7 +1281,7 @@ namespace System.Reflection.Emit
             // add the localType to local signature
             m_localSignature.AddArgument(localType, pinned);
 
-            localBuilder = new LocalBuilder(m_localCount, localType, methodBuilder, pinned);
+            LocalBuilder localBuilder = new LocalBuilder(m_localCount, localType, methodBuilder, pinned);
             m_localCount++;
             return localBuilder;
         }
@@ -1311,12 +1297,11 @@ namespace System.Reflection.Emit
             if (usingNamespace.Length == 0)
                 throw new ArgumentException(SR.Argument_EmptyName, nameof(usingNamespace));
 
-            int index;
             MethodBuilder methodBuilder = m_methodBuilder as MethodBuilder;
             if (methodBuilder == null)
                 throw new NotSupportedException();
 
-            index = methodBuilder.GetILGenerator().m_ScopeTree.GetCurrentActiveScopeIndex();
+            int index = methodBuilder.GetILGenerator().m_ScopeTree.GetCurrentActiveScopeIndex();
             if (index == -1)
             {
                 methodBuilder.m_localSymInfo.AddUsingNamespace(usingNamespace);
@@ -1787,10 +1772,8 @@ namespace System.Reflection.Emit
             int iEndLine,
             int iEndColumn)
         {
-            int i;
-
             // make sure that arrays are large enough to hold addition info
-            i = FindDocument(document);
+            int i = FindDocument(document);
 
             Debug.Assert(i < m_DocumentCount, "Bad document look up!");
             m_Documents[i].AddLineNumberInfo(document, iOffset, iStartLine, iStartColumn, iEndLine, iEndColumn);
@@ -1800,14 +1783,12 @@ namespace System.Reflection.Emit
         // the REDocument array.
         private int FindDocument(ISymbolDocumentWriter document)
         {
-            int i;
-
             // This is an optimization. The chance that the previous line is coming from the same
             // document is very high.
             if (m_iLastFound < m_DocumentCount && m_Documents[m_iLastFound].m_document == document)
                 return m_iLastFound;
 
-            for (i = 0; i < m_DocumentCount; i++)
+            for (int i = 0; i < m_DocumentCount; i++)
             {
                 if (m_Documents[i].m_document == document)
                 {
@@ -1932,28 +1913,22 @@ namespace System.Reflection.Emit
 
         internal void EmitLineNumberInfo(ISymbolWriter symWriter)
         {
-            int[] iOffsetsTemp;
-            int[] iLinesTemp;
-            int[] iColumnsTemp;
-            int[] iEndLinesTemp;
-            int[] iEndColumnsTemp;
-
             if (m_iLineNumberCount == 0)
                 return;
             // reduce the array size to be exact
-            iOffsetsTemp = new int[m_iLineNumberCount];
+            int[] iOffsetsTemp = new int[m_iLineNumberCount];
             Array.Copy(m_iOffsets, 0, iOffsetsTemp, 0, m_iLineNumberCount);
 
-            iLinesTemp = new int[m_iLineNumberCount];
+            int[] iLinesTemp = new int[m_iLineNumberCount];
             Array.Copy(m_iLines, 0, iLinesTemp, 0, m_iLineNumberCount);
 
-            iColumnsTemp = new int[m_iLineNumberCount];
+            int[] iColumnsTemp = new int[m_iLineNumberCount];
             Array.Copy(m_iColumns, 0, iColumnsTemp, 0, m_iLineNumberCount);
 
-            iEndLinesTemp = new int[m_iLineNumberCount];
+            int[] iEndLinesTemp = new int[m_iLineNumberCount];
             Array.Copy(m_iEndLines, 0, iEndLinesTemp, 0, m_iLineNumberCount);
 
-            iEndColumnsTemp = new int[m_iLineNumberCount];
+            int[] iEndColumnsTemp = new int[m_iLineNumberCount];
             Array.Copy(m_iEndColumns, 0, iEndColumnsTemp, 0, m_iLineNumberCount);
 
             symWriter.DefineSequencePoints(m_document, iOffsetsTemp, iLinesTemp, iColumnsTemp, iEndLinesTemp, iEndColumnsTemp);

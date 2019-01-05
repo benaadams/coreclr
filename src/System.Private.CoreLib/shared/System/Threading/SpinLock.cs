@@ -311,12 +311,11 @@ namespace System.Threading
             // 3- This is the yielding step, there are two ways of yielding Thread.Yield and Sleep(1)
             // If the timeout is expired in after step 1, we need to decrement the waiters count before returning
 
-            int observedOwner;
             int turn = int.MaxValue;
             //***Step 1, take the lock or update the waiters
 
             // try to acquire the lock directly if possible or update the waiters count
-            observedOwner = _owner;
+            int observedOwner = _owner;
             if ((observedOwner & LOCK_ANONYMOUS_OWNED) == LOCK_UNOWNED)
             {
                 if (CompareExchange(ref _owner, observedOwner | 1, observedOwner, ref lockTaken) == observedOwner)

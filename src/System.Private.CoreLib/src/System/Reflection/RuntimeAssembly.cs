@@ -5,7 +5,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using CultureInfo = System.Globalization.CultureInfo;
-using System.Security;
 using System.IO;
 using StringBuilder = System.Text.StringBuilder;
 using System.Configuration.Assemblies;
@@ -273,8 +272,7 @@ namespace System.Reflection
                                                      ref StackCrawlMark stackMark,
                                                      IntPtr pPrivHostBinder)
         {
-            RuntimeAssembly assembly;
-            AssemblyName an = CreateAssemblyName(assemblyString, out assembly);
+            AssemblyName an = CreateAssemblyName(assemblyString, out RuntimeAssembly assembly);
 
             if (assembly != null)
             {
@@ -565,8 +563,7 @@ namespace System.Reflection
 
         internal unsafe Stream GetManifestResourceStream(string name, ref StackCrawlMark stackMark, bool skipSecurityCheck)
         {
-            ulong length = 0;
-            byte* pbInMemoryResource = GetResource(GetNativeHandle(), name, out length, JitHelpers.GetStackCrawlMarkHandle(ref stackMark), skipSecurityCheck);
+            byte* pbInMemoryResource = GetResource(GetNativeHandle(), name, out ulong length, JitHelpers.GetStackCrawlMarkHandle(ref stackMark), skipSecurityCheck);
 
             if (pbInMemoryResource != null)
             {
@@ -590,8 +587,7 @@ namespace System.Reflection
 
         internal Version GetVersion()
         {
-            int majorVer, minorVer, build, revision;
-            GetVersion(GetNativeHandle(), out majorVer, out minorVer, out build, out revision);
+            GetVersion(GetNativeHandle(), out int majorVer, out int minorVer, out int build, out int revision);
             return new Version(majorVer, minorVer, build, revision);
         }
 

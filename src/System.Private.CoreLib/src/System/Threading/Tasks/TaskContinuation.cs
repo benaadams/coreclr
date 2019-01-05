@@ -440,9 +440,8 @@ namespace System.Threading.Tasks
         {
             return () =>
                 {
-                    Guid savedActivityId;
                     Guid activityId = TplEtwProvider.CreateGuidForTaskID(continuationId);
-                    System.Diagnostics.Tracing.EventSource.SetCurrentThreadActivityId(activityId, out savedActivityId);
+                    System.Diagnostics.Tracing.EventSource.SetCurrentThreadActivityId(activityId, out Guid savedActivityId);
                     try { action(); }
                     finally { System.Diagnostics.Tracing.EventSource.SetCurrentThreadActivityId(savedActivityId); }
                 };

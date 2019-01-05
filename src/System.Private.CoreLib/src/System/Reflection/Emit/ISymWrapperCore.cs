@@ -271,8 +271,7 @@ namespace System.Reflection.Emit
             //------------------------------------------------------------------------------
             int ISymbolWriter.OpenScope(int startOffset)
             {
-                int ret;
-                int hr = m_vtable.OpenScope(m_pWriter, startOffset, out ret);
+                int hr = m_vtable.OpenScope(m_pWriter, startOffset, out int ret);
                 if (hr < 0)
                 {
                     throw Marshal.GetExceptionForHR(hr);

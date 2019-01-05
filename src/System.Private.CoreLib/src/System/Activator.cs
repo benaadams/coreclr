@@ -127,8 +127,7 @@ namespace System
             }
             else
             {
-                RuntimeAssembly assemblyFromResolveEvent;
-                AssemblyName assemblyName = RuntimeAssembly.CreateAssemblyName(assemblyString, out assemblyFromResolveEvent);
+                AssemblyName assemblyName = RuntimeAssembly.CreateAssemblyName(assemblyString, out RuntimeAssembly assemblyFromResolveEvent);
                 if (assemblyFromResolveEvent != null)
                 {
                     // Assembly was resolved via AssemblyResolve event

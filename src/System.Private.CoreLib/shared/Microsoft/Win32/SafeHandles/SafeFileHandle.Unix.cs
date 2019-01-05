@@ -63,8 +63,7 @@ namespace Microsoft.Win32.SafeHandles
 
             // Make sure it's not a directory; we do this after opening it once we have a file descriptor 
             // to avoid race conditions.
-            Interop.Sys.FileStatus status;
-            if (Interop.Sys.FStat(handle, out status) != 0)
+            if (Interop.Sys.FStat(handle, out Interop.Sys.FileStatus status) != 0)
             {
                 handle.Dispose();
                 throw Interop.GetExceptionForIoErrno(Interop.Sys.GetLastErrorInfo(), path);
@@ -80,12 +79,10 @@ namespace Microsoft.Win32.SafeHandles
 
         private static bool DirectoryExists(string fullPath)
         {
-            Interop.Sys.FileStatus fileinfo;
-
             // First use stat, as we want to follow symlinks.  If that fails, it could be because the symlink
             // is broken, we don't have permissions, etc., in which case fall back to using LStat to evaluate
             // based on the symlink itself.
-            if (Interop.Sys.Stat(fullPath, out fileinfo) < 0 &&
+            if (Interop.Sys.Stat(fullPath, out Interop.Sys.FileStatus fileinfo) < 0 &&
                 Interop.Sys.LStat(fullPath, out fileinfo) < 0)
             {
                 return false;

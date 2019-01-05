@@ -45,7 +45,6 @@ namespace System.Reflection.Emit
 
         public override LocalBuilder DeclareLocal(Type localType, bool pinned)
         {
-            LocalBuilder localBuilder;
             if (localType == null)
                 throw new ArgumentNullException(nameof(localType));
 
@@ -54,7 +53,7 @@ namespace System.Reflection.Emit
             if (rtType == null)
                 throw new ArgumentException(SR.Argument_MustBeRuntimeType);
 
-            localBuilder = new LocalBuilder(m_localCount, localType, m_methodBuilder);
+            LocalBuilder localBuilder = new LocalBuilder(m_localCount, localType, m_methodBuilder);
             // add the localType to local signature
             m_localSignature.AddArgument(localType, pinned);
             m_localCount++;
@@ -207,16 +206,15 @@ namespace System.Reflection.Emit
                                        Type[] optionalParameterTypes)
         {
             int stackchange = 0;
-            SignatureHelper sig;
             if (optionalParameterTypes != null)
                 if ((callingConvention & CallingConventions.VarArgs) == 0)
 
                     throw new InvalidOperationException(SR.InvalidOperation_NotAVarArgCallingConvention);
 
-            sig = GetMemberRefSignature(callingConvention,
-                                        returnType,
-                                        parameterTypes,
-                                        optionalParameterTypes);
+            SignatureHelper sig = GetMemberRefSignature(callingConvention,
+                            returnType,
+                            parameterTypes,
+                            optionalParameterTypes);
 
             EnsureCapacity(7);
             Emit(OpCodes.Calli);
@@ -243,20 +241,18 @@ namespace System.Reflection.Emit
 
         public override void EmitCalli(OpCode opcode, CallingConvention unmanagedCallConv, Type returnType, Type[] parameterTypes)
         {
-            int stackchange = 0;
             int cParams = 0;
-            int i;
-            SignatureHelper sig;
 
             if (parameterTypes != null)
                 cParams = parameterTypes.Length;
 
-            sig = SignatureHelper.GetMethodSigHelper(unmanagedCallConv, returnType);
+            SignatureHelper sig = SignatureHelper.GetMethodSigHelper(unmanagedCallConv, returnType);
 
             if (parameterTypes != null)
-                for (i = 0; i < cParams; i++)
+                for (int i = 0; i < cParams; i++)
                     sig.AddArgument(parameterTypes[i]);
 
+            int stackchange = 0;
             // If there is a non-void return type, push one. 
             if (returnType != typeof(void))
                 stackchange++;
@@ -290,14 +286,13 @@ namespace System.Reflection.Emit
             if (methodInfo.DeclaringType != null && methodInfo.DeclaringType.ContainsGenericParameters)
                 throw new ArgumentException(SR.Argument_GenericsInvalid, nameof(methodInfo));
 
-            int tk;
-            int stackchange = 0;
 
-            tk = GetMemberRefToken(methodInfo, optionalParameterTypes);
+            int tk = GetMemberRefToken(methodInfo, optionalParameterTypes);
 
             EnsureCapacity(7);
             InternalEmit(opcode);
 
+            int stackchange = 0;
             // Push the return value if there is one.
             if (methodInfo.ReturnType != typeof(void))
                 stackchange++;
@@ -692,8 +687,6 @@ namespace System.Reflection.Emit
 
         internal override RuntimeType GetJitContext(ref int securityControlFlags)
         {
-            RuntimeType typeOwner;
-
             SecurityControlFlags flags = SecurityControlFlags.Default;
 
             if (m_method.m_restrictedSkipVisibility)
@@ -701,7 +694,7 @@ namespace System.Reflection.Emit
             else if (m_method.m_skipVisibility)
                 flags |= SecurityControlFlags.SkipVisibilityChecks;
 
-            typeOwner = m_method.m_typeOwner;
+            RuntimeType typeOwner = m_method.m_typeOwner;
 
 
             securityControlFlags = (int)flags;

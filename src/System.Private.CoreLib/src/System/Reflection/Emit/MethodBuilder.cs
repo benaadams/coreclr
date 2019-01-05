@@ -195,17 +195,6 @@ namespace System.Reflection.Emit
                 throw new ArgumentNullException(nameof(il));
             }
 
-            __ExceptionInfo[] excp;
-            int counter = 0;
-            int[] filterAddrs;
-            int[] catchAddrs;
-            int[] catchEndAddrs;
-            Type[] catchClass;
-            int[] type;
-            int numCatch;
-            int start, end;
-            ModuleBuilder dynMod = (ModuleBuilder)m_module;
-
             m_containingType.ThrowIfCreated();
 
             if (m_bIsBaked)
@@ -230,29 +219,30 @@ namespace System.Reflection.Emit
                 throw new InvalidOperationException(SR.InvalidOperation_OpenLocalVariableScope);
             }
 
-
             m_ubBody = il.BakeByteArray();
 
             m_mdMethodFixups = il.GetTokenFixups();
 
             //Okay, now the fun part.  Calculate all of the exceptions.
-            excp = il.GetExceptions();
+            __ExceptionInfo[] excp = il.GetExceptions();
             int numExceptions = CalculateNumberOfExceptions(excp);
+
+            ModuleBuilder dynMod = (ModuleBuilder)m_module;
             if (numExceptions > 0)
             {
                 m_exceptions = new ExceptionHandler[numExceptions];
 
                 for (int i = 0; i < excp.Length; i++)
                 {
-                    filterAddrs = excp[i].GetFilterAddresses();
-                    catchAddrs = excp[i].GetCatchAddresses();
-                    catchEndAddrs = excp[i].GetCatchEndAddresses();
-                    catchClass = excp[i].GetCatchClass();
+                    int[] filterAddrs = excp[i].GetFilterAddresses();
+                    int[] catchAddrs = excp[i].GetCatchAddresses();
+                    int[] catchEndAddrs = excp[i].GetCatchEndAddresses();
+                    Type[] catchClass = excp[i].GetCatchClass();
 
-                    numCatch = excp[i].GetNumberOfCatches();
-                    start = excp[i].GetStartAddress();
-                    end = excp[i].GetEndAddress();
-                    type = excp[i].GetExceptionTypes();
+                    int numCatch = excp[i].GetNumberOfCatches();
+                    int start = excp[i].GetStartAddress();
+                    int end = excp[i].GetEndAddress();
+                    int[] type = excp[i].GetExceptionTypes();
                     for (int j = 0; j < numCatch; j++)
                     {
                         int tkExceptionClass = 0;
@@ -261,6 +251,8 @@ namespace System.Reflection.Emit
                             tkExceptionClass = dynMod.GetTypeTokenInternal(catchClass[j]).Token;
                         }
 
+
+                        int counter = 0;
                         switch (type[j])
                         {
                             case __ExceptionInfo.None:
@@ -759,8 +751,7 @@ namespace System.Reflection.Emit
         {
             Debug.Assert(m_tkMethod.Token == 0, "m_tkMethod should not have been initialized");
 
-            int sigLength;
-            byte[] sigBytes = GetMethodSignature().InternalGetSignature(out sigLength);
+            byte[] sigBytes = GetMethodSignature().InternalGetSignature(out int sigLength);
 
             int token = TypeBuilder.DefineMethod(m_module.GetNativeHandle(), m_containingType.MetadataTokenInternal, m_strName, sigBytes, sigLength, Attributes);
             m_tkMethod = new MethodToken(token);

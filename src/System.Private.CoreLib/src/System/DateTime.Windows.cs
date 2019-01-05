@@ -105,8 +105,7 @@ namespace System
             {
                 DateTime dt = new DateTime(ticks);
 
-                int year, month, day;
-                dt.GetDatePart(out year, out month, out day);
+                dt.GetDatePart(out int year, out int month, out int day);
 
                 systemTime.Year = (ushort) year;
                 systemTime.Month = (ushort) month;

@@ -363,14 +363,8 @@ namespace System.IO
                 throw Error.GetFileNotOpen();
             }
 
-            int currPos = 0;
-            int n;
-            int stringLength;
-            int readLength;
-            int charsRead;
-
             // Length of the string in bytes, not chars
-            stringLength = Read7BitEncodedInt();
+            int stringLength = Read7BitEncodedInt();
             if (stringLength < 0)
             {
                 throw new IOException(SR.Format(SR.IO_InvalidStringLen_Len, stringLength));
@@ -392,17 +386,19 @@ namespace System.IO
             }
 
             StringBuilder sb = null;
+
+            int currPos = 0;
             do
             {
-                readLength = ((stringLength - currPos) > MaxCharBytesSize) ? MaxCharBytesSize : (stringLength - currPos);
+                int readLength = ((stringLength - currPos) > MaxCharBytesSize) ? MaxCharBytesSize : (stringLength - currPos);
 
-                n = _stream.Read(_charBytes, 0, readLength);
+                int n = _stream.Read(_charBytes, 0, readLength);
                 if (n == 0)
                 {
                     throw Error.GetEndOfFile();
                 }
 
-                charsRead = _decoder.GetChars(_charBytes, 0, n, _charBuffer, 0);
+                int charsRead = _decoder.GetChars(_charBytes, 0, n, _charBuffer, 0);
 
                 if (currPos == 0 && n == stringLength)
                 {

@@ -255,8 +255,7 @@ namespace System.Reflection
         {
             MetadataImport scope = module.MetadataImport;
 
-            MetadataEnumResult tkCustomAttributeTokens;
-            scope.EnumCustomAttributes(targetToken, out tkCustomAttributeTokens);
+            scope.EnumCustomAttributes(targetToken, out MetadataEnumResult tkCustomAttributeTokens);
 
             if (tkCustomAttributeTokens.Length == 0)
             {
@@ -1450,10 +1449,6 @@ namespace System.Reflection
             {
                 object attribute = null;
                 CustomAttributeRecord caRecord = car[i];
-
-                IRuntimeMethodInfo ctor = null;
-                RuntimeType attributeType = null;
-                bool ctorHasParameters, isVarArg;
                 int cNamedArgs = 0;
 
                 IntPtr blobStart = caRecord.blob.Signature;
@@ -1463,7 +1458,7 @@ namespace System.Reflection
                 if (!FilterCustomAttributeRecord(caRecord, scope,
                                                  decoratedModule, decoratedMetadataToken, attributeFilterType, mustBeInheritable,
                                                  ref derivedAttributes,
-                                                 out attributeType, out ctor, out ctorHasParameters, out isVarArg))
+                                                 out RuntimeType attributeType, out IRuntimeMethodInfo ctor, out bool ctorHasParameters, out bool isVarArg))
                     continue;
 
                 // Leverage RuntimeConstructorInfo standard .ctor verfication
@@ -1505,12 +1500,8 @@ namespace System.Reflection
                 for (int j = 0; j < cNamedArgs; j++)
                 {
                     #region // Initialize named properties and fields
-                    string name;
-                    bool isProperty;
-                    RuntimeType type;
-                    object value;
 
-                    GetPropertyOrFieldData(decoratedModule, ref blobStart, blobEnd, out name, out isProperty, out type, out value);
+                    GetPropertyOrFieldData(decoratedModule, ref blobStart, blobEnd, out string name, out bool isProperty, out RuntimeType type, out object value);
 
                     try
                     {
@@ -1726,9 +1717,7 @@ namespace System.Reflection
                     throw new FormatException(string.Format(
                         CultureInfo.CurrentUICulture, SR.Format_AttributeUsage, attributeType));
 
-                AttributeTargets targets;
-                bool inherited, allowMultiple;
-                ParseAttributeUsageAttribute(caRecord.blob, out targets, out inherited, out allowMultiple);
+                ParseAttributeUsageAttribute(caRecord.blob, out AttributeTargets targets, out bool inherited, out bool allowMultiple);
                 attributeUsageAttribute = new AttributeUsageAttribute(targets, allowMultiple, inherited);
             }
 
@@ -1746,8 +1735,7 @@ namespace System.Reflection
         private static void ParseAttributeUsageAttribute(
             ConstArray ca, out AttributeTargets targets, out bool inherited, out bool allowMultiple)
         {
-            int _targets;
-            _ParseAttributeUsageAttribute(ca.Signature, ca.Length, out _targets, out inherited, out allowMultiple);
+            _ParseAttributeUsageAttribute(ca.Signature, ca.Length, out int _targets, out inherited, out allowMultiple);
             targets = (AttributeTargets)_targets;
         }
 
@@ -2045,11 +2033,9 @@ namespace System.Reflection
                 return null;
 
             MetadataImport scope = ModuleHandle.GetMetadataImport(method.Module.ModuleHandle.GetRuntimeModule());
-            string entryPoint, dllName = null;
             int token = method.MetadataToken;
-            PInvokeAttributes flags = 0;
 
-            scope.GetPInvokeMap(token, out flags, out entryPoint, out dllName);
+            scope.GetPInvokeMap(token, out PInvokeAttributes flags, out string entryPoint, out string dllName);
 
             CharSet charSet = CharSet.None;
 
@@ -2104,19 +2090,14 @@ namespace System.Reflection
 
         private static MarshalAsAttribute GetMarshalAsCustomAttribute(int token, RuntimeModule scope)
         {
-            UnmanagedType unmanagedType, arraySubType;
-            VarEnum safeArraySubType;
-            int sizeParamIndex = 0, sizeConst = 0;
-            string marshalTypeName = null, marshalCookie = null, safeArrayUserDefinedTypeName = null;
-            int iidParamIndex = 0;
             ConstArray nativeType = ModuleHandle.GetMetadataImport(scope.GetNativeHandle()).GetFieldMarshal(token);
 
             if (nativeType.Length == 0)
                 return null;
 
             MetadataImport.GetMarshalAs(nativeType,
-                out unmanagedType, out safeArraySubType, out safeArrayUserDefinedTypeName, out arraySubType, out sizeParamIndex,
-                out sizeConst, out marshalTypeName, out marshalCookie, out iidParamIndex);
+                out UnmanagedType unmanagedType, out VarEnum safeArraySubType, out string safeArrayUserDefinedTypeName, out UnmanagedType arraySubType, out int sizeParamIndex,
+                out int sizeConst, out string marshalTypeName, out string marshalCookie, out int iidParamIndex);
 
             RuntimeType safeArrayUserDefinedType = safeArrayUserDefinedTypeName == null || safeArrayUserDefinedTypeName.Length == 0 ? null :
                 RuntimeTypeHandle.GetTypeByNameUsingCARules(safeArrayUserDefinedTypeName, scope);
@@ -2150,10 +2131,8 @@ namespace System.Reflection
 
         private static FieldOffsetAttribute GetFieldOffsetCustomAttribute(RuntimeFieldInfo field)
         {
-            int fieldOffset;
-
             if (field.DeclaringType != null &&
-                field.GetRuntimeModule().MetadataImport.GetFieldOffset(field.DeclaringType.MetadataToken, field.MetadataToken, out fieldOffset))
+                field.GetRuntimeModule().MetadataImport.GetFieldOffset(field.DeclaringType.MetadataToken, field.MetadataToken, out int fieldOffset))
                 return new FieldOffsetAttribute(fieldOffset);
 
             return null;
@@ -2163,8 +2142,6 @@ namespace System.Reflection
         {
             if (type.IsInterface || type.HasElementType || type.IsGenericParameter)
                 return null;
-
-            int pack = 0, size = 0;
             LayoutKind layoutKind = LayoutKind.Auto;
             switch (type.Attributes & TypeAttributes.LayoutMask)
             {
@@ -2182,7 +2159,7 @@ namespace System.Reflection
                 case TypeAttributes.UnicodeClass: charSet = CharSet.Unicode; break;
                 default: Debug.Fail("Unreachable code"); break;
             }
-            type.GetRuntimeModule().MetadataImport.GetClassLayout(type.MetadataToken, out pack, out size);
+            type.GetRuntimeModule().MetadataImport.GetClassLayout(type.MetadataToken, out int pack, out int size);
 
             // Metadata parameter checking should not have allowed 0 for packing size.
             // The runtime later converts a packing size of 0 to 8 so do the same here

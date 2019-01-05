@@ -707,8 +707,7 @@ namespace System.IO
             // Make sure we are writing to the position that we think we are
             VerifyOSHandlePosition();
 
-            int errorCode = 0;
-            int r = WriteFileNative(_fileHandle, source, null, out errorCode);
+            int r = WriteFileNative(_fileHandle, source, null, out int errorCode);
 
             if (r == -1)
             {
@@ -882,8 +881,7 @@ namespace System.IO
             }
 
             // queue an async ReadFile operation and pass in a packed overlapped
-            int errorCode = 0;
-            int r = ReadFileNative(_fileHandle, destination.Span, intOverlapped, out errorCode);
+            int r = ReadFileNative(_fileHandle, destination.Span, intOverlapped, out int errorCode);
 
             // ReadFile, the OS version, will return 0 on failure.  But
             // my ReadFileNative wrapper returns -1.  My wrapper will return
@@ -1087,9 +1085,8 @@ namespace System.IO
                 SeekCore(_fileHandle, source.Length, SeekOrigin.Current);
             }
 
-            int errorCode = 0;
             // queue an async WriteFile operation and pass in a packed overlapped
-            int r = WriteFileNative(_fileHandle, source.Span, intOverlapped, out errorCode);
+            int r = WriteFileNative(_fileHandle, source.Span, intOverlapped, out int errorCode);
 
             // WriteFile, the OS version, will return 0 on failure.  But
             // my WriteFileNative wrapper returns -1.  My wrapper will return

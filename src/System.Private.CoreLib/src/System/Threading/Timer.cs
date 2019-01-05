@@ -78,9 +78,7 @@ namespace System.Threading
                 // in sleep/hibernate mode.
                 if (Environment.IsWindows8OrAbove)
                 {
-                    ulong time100ns;
-
-                    bool result = Win32Native.QueryUnbiasedInterruptTime(out time100ns);
+                    bool result = Win32Native.QueryUnbiasedInterruptTime(out ulong time100ns);
                     if (!result)
                         throw Marshal.GetExceptionForHR(Marshal.GetLastWin32Error());
 

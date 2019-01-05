@@ -585,11 +585,6 @@ namespace System.Reflection.Emit
         #region Private Members
         private FieldBuilder DefineDataHelper(string name, byte[] data, int size, FieldAttributes attributes)
         {
-            string strValueClassName;
-            TypeBuilder valueClassType;
-            FieldBuilder fdBuilder;
-            TypeAttributes typeAttributes;
-
             if (name == null)
                 throw new ArgumentNullException(nameof(name));
 
@@ -602,22 +597,22 @@ namespace System.Reflection.Emit
             ThrowIfCreated();
 
             // form the value class name
-            strValueClassName = ModuleBuilderData.MultiByteValueClass + size.ToString();
+            string strValueClassName = ModuleBuilderData.MultiByteValueClass + size.ToString();
 
             // Is this already defined in this module?
             Type temp = m_module.FindTypeBuilderWithName(strValueClassName, false);
-            valueClassType = temp as TypeBuilder;
+            TypeBuilder valueClassType = temp as TypeBuilder;
 
             if (valueClassType == null)
             {
-                typeAttributes = TypeAttributes.Public | TypeAttributes.ExplicitLayout | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AnsiClass;
+                TypeAttributes typeAttributes = TypeAttributes.Public | TypeAttributes.ExplicitLayout | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AnsiClass;
 
                 // Define the backing value class
                 valueClassType = m_module.DefineType(strValueClassName, typeAttributes, typeof(System.ValueType), PackingSize.Size1, size);
                 valueClassType.CreateType();
             }
 
-            fdBuilder = DefineField(name, valueClassType, (attributes | FieldAttributes.Static));
+            FieldBuilder fdBuilder = DefineField(name, valueClassType, (attributes | FieldAttributes.Static));
 
             // now we need to set the RVA
             fdBuilder.SetData(data, size);
@@ -1304,11 +1299,8 @@ namespace System.Reflection.Emit
                 // Loader restriction: body method has to be from this class
                 throw new ArgumentException(SR.ArgumentException_BadMethodImplBody);
 
-            MethodToken tkBody;
-            MethodToken tkDecl;
-
-            tkBody = m_module.GetMethodTokenInternal(methodInfoBody);
-            tkDecl = m_module.GetMethodTokenInternal(methodInfoDeclaration);
+            MethodToken tkBody = m_module.GetMethodTokenInternal(methodInfoBody);
+            MethodToken tkDecl = m_module.GetMethodTokenInternal(methodInfoDeclaration);
 
             DefineMethodImpl(m_module.GetNativeHandle(), m_tdType.Token, tkBody.Token, tkDecl.Token);
         }
@@ -1481,8 +1473,7 @@ namespace System.Reflection.Emit
 
                 //The signature grabbing code has to be up here or the signature won't be finished
                 //and our equals check won't work.
-                int sigLength;
-                byte[] sigBytes = method.GetMethodSignature().InternalGetSignature(out sigLength);
+                byte[] sigBytes = method.GetMethodSignature().InternalGetSignature(out int sigLength);
 
                 if (m_listMethods.Contains(method))
                 {
@@ -1576,8 +1567,6 @@ namespace System.Reflection.Emit
 
         private ConstructorBuilder DefineDefaultConstructorNoLock(MethodAttributes attributes)
         {
-            ConstructorBuilder constBuilder;
-
             // get the parent class's default constructor
             // We really don't want(BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic) here.  We really want
             // constructors visible from the subclass, but that is not currently
@@ -1615,7 +1604,7 @@ namespace System.Reflection.Emit
                 throw new NotSupportedException(SR.NotSupported_NoParentDefaultConstructor);
 
             // Define the constructor Builder
-            constBuilder = DefineConstructor(attributes, CallingConventions.Standard, null);
+            ConstructorBuilder constBuilder = DefineConstructor(attributes, CallingConventions.Standard, null);
             m_constructorCount++;
 
             // generate the code to call the parent's default constructor
@@ -1867,20 +1856,16 @@ namespace System.Reflection.Emit
             CheckContext(parameterTypeRequiredCustomModifiers);
             CheckContext(parameterTypeOptionalCustomModifiers);
 
-            SignatureHelper sigHelper;
-            int sigLength;
-            byte[] sigBytes;
-
             ThrowIfCreated();
 
             // get the signature in SignatureHelper form
-            sigHelper = SignatureHelper.GetPropertySigHelper(
+            SignatureHelper sigHelper = SignatureHelper.GetPropertySigHelper(
                 m_module, callingConvention,
                 returnType, returnTypeRequiredCustomModifiers, returnTypeOptionalCustomModifiers,
                 parameterTypes, parameterTypeRequiredCustomModifiers, parameterTypeOptionalCustomModifiers);
 
             // get the signature in byte form
-            sigBytes = sigHelper.InternalGetSignature(out sigLength);
+            byte[] sigBytes = sigHelper.InternalGetSignature(out int sigLength);
 
             PropertyToken prToken = new PropertyToken(DefineProperty(
                 m_module.GetNativeHandle(),
@@ -1918,17 +1903,14 @@ namespace System.Reflection.Emit
             if (name[0] == '\0')
                 throw new ArgumentException(SR.Argument_IllegalName, nameof(name));
 
-            int tkType;
-            EventToken evToken;
-
             CheckContext(eventtype);
 
             ThrowIfCreated();
 
-            tkType = m_module.GetTypeTokenInternal(eventtype).Token;
+            int tkType = m_module.GetTypeTokenInternal(eventtype).Token;
 
             // Internal helpers to define property records
-            evToken = new EventToken(DefineEvent(
+            EventToken evToken = new EventToken(DefineEvent(
                 m_module.GetNativeHandle(),
                 m_tdType.Token,
                 name,
@@ -2073,8 +2055,7 @@ namespace System.Reflection.Emit
                     continue;
                 }
 
-                int sigLength;
-                byte[] localSig = meth.GetLocalSignature(out sigLength);
+                byte[] localSig = meth.GetLocalSignature(out int sigLength);
 
                 // Check that they haven't declared an abstract method on a non-abstract class
                 if (((methodAttrs & MethodAttributes.Abstract) != 0) && ((m_iAttr & TypeAttributes.Abstract) == 0))

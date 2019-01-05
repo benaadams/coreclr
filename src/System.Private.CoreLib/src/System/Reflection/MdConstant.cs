@@ -12,12 +12,7 @@ namespace System.Reflection
     {
         public static unsafe object GetValue(MetadataImport scope, int token, RuntimeTypeHandle fieldTypeHandle, bool raw)
         {
-            CorElementType corElementType = 0;
-            long buffer = 0;
-            int length;
-            string stringVal;
-
-            stringVal = scope.GetDefaultValue(token, out buffer, out length, out corElementType);
+            string stringVal = scope.GetDefaultValue(token, out long buffer, out int length, out CorElementType corElementType);
 
             RuntimeType fieldType = fieldTypeHandle.GetRuntimeType();
 
@@ -29,7 +24,7 @@ namespace System.Reflection
                 // parameters have been reported as values of the underlying type, changing
                 // this now might be a breaking change.
 
-                long defaultValue = 0;
+                long defaultValue;
 
                 switch (corElementType)
                 {

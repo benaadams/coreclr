@@ -44,8 +44,7 @@ namespace System
             private static TimeZoneInfo GetCurrentOneYearLocal()
             {
                 // load the data from the OS
-                TIME_ZONE_INFORMATION timeZoneInformation;
-                uint result = Interop.Kernel32.GetTimeZoneInformation(out timeZoneInformation);
+                uint result = Interop.Kernel32.GetTimeZoneInformation(out TIME_ZONE_INFORMATION timeZoneInformation);
                 return result == Interop.Kernel32.TIME_ZONE_ID_INVALID ?
                     CreateCustomTimeZone(LocalId, TimeSpan.Zero, LocalId, LocalId) :
                     GetLocalTimeZoneFromWin32Data(timeZoneInformation, dstDisabled: false);
@@ -105,9 +104,7 @@ namespace System
                 {
                     foreach (string keyName in reg.GetSubKeyNames())
                     {
-                        TimeZoneInfo value;
-                        Exception ex;
-                        TryGetTimeZone(keyName, false, out value, out ex, cachedData);  // populate the cache
+                        TryGetTimeZone(keyName, false, out TimeZoneInfo value, out Exception ex, cachedData);  // populate the cache
                     }
                 }
             }
@@ -179,14 +176,12 @@ namespace System
             //
             // Create an AdjustmentRule with TransitionTime objects
             //
-            TransitionTime daylightTransitionStart;
-            if (!TransitionTimeFromTimeZoneInformation(timeZoneInformation, out daylightTransitionStart, readStartDate: true))
+            if (!TransitionTimeFromTimeZoneInformation(timeZoneInformation, out TransitionTime daylightTransitionStart, readStartDate: true))
             {
                 return null;
             }
 
-            TransitionTime daylightTransitionEnd;
-            if (!TransitionTimeFromTimeZoneInformation(timeZoneInformation, out daylightTransitionEnd, readStartDate: false))
+            if (!TransitionTimeFromTimeZoneInformation(timeZoneInformation, out TransitionTime daylightTransitionEnd, readStartDate: false))
             {
                 return null;
             }
@@ -261,10 +256,7 @@ namespace System
             string dynamicTimeZoneKeyName = dynamicTimeZoneInformation.GetTimeZoneKeyName();
             if (dynamicTimeZoneKeyName.Length != 0)
             {
-                TimeZoneInfo zone;
-                Exception ex;
-
-                if (TryGetTimeZone(dynamicTimeZoneKeyName, dynamicTimeZoneInformation.DynamicDaylightTimeDisabled != 0, out zone, out ex, cachedData) == TimeZoneInfoResult.Success)
+                if (TryGetTimeZone(dynamicTimeZoneKeyName, dynamicTimeZoneInformation.DynamicDaylightTimeDisabled != 0, out TimeZoneInfo zone, out Exception ex, cachedData) == TimeZoneInfoResult.Success)
                 {
                     // successfully loaded the time zone from the registry
                     return zone;
@@ -278,9 +270,7 @@ namespace System
 
             if (id != null)
             {
-                TimeZoneInfo zone;
-                Exception ex;
-                if (TryGetTimeZone(id, dstDisabled, out zone, out ex, cachedData) == TimeZoneInfoResult.Success)
+                if (TryGetTimeZone(id, dstDisabled, out TimeZoneInfo zone, out Exception ex, cachedData) == TimeZoneInfoResult.Success)
                 {
                     // successfully loaded the time zone from the registry
                     return zone;
@@ -382,20 +372,18 @@ namespace System
         // DateTime.Now fast path that avoids allocating an historically accurate TimeZoneInfo.Local and just creates a 1-year (current year) accurate time zone
         internal static TimeSpan GetDateTimeNowUtcOffsetFromUtc(DateTime time, out bool isAmbiguousLocalDst)
         {
-            bool isDaylightSavings = false;
             isAmbiguousLocalDst = false;
-            TimeSpan baseOffset;
             int timeYear = time.Year;
 
             OffsetAndRule match = s_cachedData.GetOneYearLocalFromUtc(timeYear);
-            baseOffset = match.Offset;
+            TimeSpan baseOffset = match.Offset;
 
             if (match.Rule != null)
             {
                 baseOffset = baseOffset + match.Rule.BaseUtcOffsetDelta;
                 if (match.Rule.HasDaylightSaving)
                 {
-                    isDaylightSavings = GetIsDaylightSavingsFromUtc(time, timeYear, match.Offset, match.Rule, null, out isAmbiguousLocalDst, Local);
+                    bool isDaylightSavings = GetIsDaylightSavingsFromUtc(time, timeYear, match.Offset, match.Rule, null, out isAmbiguousLocalDst, Local);
                     baseOffset += (isDaylightSavings ? match.Rule.DaylightDelta : TimeSpan.Zero /* FUTURE: rule.StandardDelta */);
                 }
             }
@@ -583,9 +571,8 @@ namespace System
                     }
 
                     // read the first year entry
-                    REG_TZI_FORMAT dtzi;
 
-                    if (!TryGetTimeZoneEntryFromRegistry(dynamicKey, first.ToString(CultureInfo.InvariantCulture), out dtzi))
+                    if (!TryGetTimeZoneEntryFromRegistry(dynamicKey, first.ToString(CultureInfo.InvariantCulture), out REG_TZI_FORMAT dtzi))
                     {
                         return false;
                     }
@@ -712,8 +699,7 @@ namespace System
                     return false;
                 }
 
-                REG_TZI_FORMAT registryTimeZoneInfo;
-                if (!TryGetTimeZoneEntryFromRegistry(key, TimeZoneInfoValue, out registryTimeZoneInfo))
+                if (!TryGetTimeZoneEntryFromRegistry(key, TimeZoneInfoValue, out REG_TZI_FORMAT registryTimeZoneInfo))
                 {
                     return false;
                 }
@@ -780,7 +766,6 @@ namespace System
             }
 
             string filePath;
-            int resourceId;
 
             // get the path to Windows\System32
             string system32 = Environment.SystemDirectory;
@@ -798,7 +783,7 @@ namespace System
                 return string.Empty;
             }
 
-            if (!int.TryParse(resources[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out resourceId))
+            if (!int.TryParse(resources[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int resourceId))
             {
                 return string.Empty;
             }
@@ -945,16 +930,14 @@ namespace System
                     return TimeZoneInfoResult.TimeZoneNotFoundException;
                 }
 
-                REG_TZI_FORMAT defaultTimeZoneInformation;
-                if (!TryGetTimeZoneEntryFromRegistry(key, TimeZoneInfoValue, out defaultTimeZoneInformation))
+                if (!TryGetTimeZoneEntryFromRegistry(key, TimeZoneInfoValue, out REG_TZI_FORMAT defaultTimeZoneInformation))
                 {
                     // the registry value could not be cast to a byte array
                     value = null;
                     return TimeZoneInfoResult.InvalidTimeZoneException;
                 }
 
-                AdjustmentRule[] adjustmentRules;
-                if (!TryCreateAdjustmentRules(id, defaultTimeZoneInformation, out adjustmentRules, out e, defaultTimeZoneInformation.Bias))
+                if (!TryCreateAdjustmentRules(id, defaultTimeZoneInformation, out AdjustmentRule[] adjustmentRules, out e, defaultTimeZoneInformation.Bias))
                 {
                     value = null;
                     return TimeZoneInfoResult.InvalidTimeZoneException;

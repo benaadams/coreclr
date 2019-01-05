@@ -359,8 +359,7 @@ namespace System.Globalization
             if (retVal == null || (retVal.IsNeutralCulture == true))
             {
                 // Not a valid mapping, try the hard coded table
-                string name;
-                if (RegionNames.TryGetValue(cultureName, out name))
+                if (RegionNames.TryGetValue(cultureName, out string name))
                 {
                     // Make sure we can get culture data for it
                     retVal = GetCultureData(name, useUserOverride);
@@ -1633,8 +1632,7 @@ namespace System.Globalization
                             }
                         }
 
-                        bool containsSpace;
-                        int endIndex = GetIndexOfNextTokenAfterSeconds(time, j, out containsSpace);
+                        int endIndex = GetIndexOfNextTokenAfterSeconds(time, j, out bool containsSpace);
 
                         string sep;
 

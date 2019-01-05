@@ -133,11 +133,10 @@ namespace System.Reflection.Emit
             m_constructorArgs = new object[constructorArgs.Length];
             Array.Copy(constructorArgs, 0, m_constructorArgs, 0, constructorArgs.Length);
 
-            Type[] paramTypes;
             int i;
 
             // Get the types of the constructor's formal parameters.
-            paramTypes = con.GetParameterTypes();
+            Type[] paramTypes = con.GetParameterTypes();
 
             // Since we're guaranteed a non-var calling convention, the number of arguments must equal the number of parameters.
             if (paramTypes.Length != constructorArgs.Length)

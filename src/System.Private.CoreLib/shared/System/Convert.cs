@@ -2460,14 +2460,7 @@ namespace System
                 throw new ArgumentException(SR.Format(SR.Arg_EnumIllegalVal, (int)options), nameof(options));
             }
 
-
-            int retVal;
-
-            int inArrayLength;
-            int outArrayLength;
-            int numElementsToCopy;
-
-            inArrayLength = inArray.Length;
+            int inArrayLength = inArray.Length;
 
             if (offsetIn > (int)(inArrayLength - length))
                 throw new ArgumentOutOfRangeException(nameof(offsetIn), SR.ArgumentOutOfRange_OffsetLength);
@@ -2477,14 +2470,17 @@ namespace System
 
             bool insertLineBreaks = (options == Base64FormattingOptions.InsertLineBreaks);
             //This is the maximally required length that must be available in the char array
-            outArrayLength = outArray.Length;
+            int outArrayLength = outArray.Length;
 
             // Length of the char buffer required
-            numElementsToCopy = ToBase64_CalculateAndValidateOutputLength(length, insertLineBreaks);
+            int numElementsToCopy = ToBase64_CalculateAndValidateOutputLength(length, insertLineBreaks);
 
             if (offsetOut > (int)(outArrayLength - numElementsToCopy))
                 throw new ArgumentOutOfRangeException(nameof(offsetOut), SR.ArgumentOutOfRange_OffsetOut);
 
+
+
+            int retVal;
             fixed (char* outChars = &outArray[offsetOut])
             {
                 fixed (byte* inData = &inArray[0])

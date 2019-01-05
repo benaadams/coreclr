@@ -16,7 +16,7 @@ namespace System.Text
         // Our variables
         internal Encoding _encoding = null;
         internal char[] _arrayBestFit = null;
-        internal char _cReplacement = '?';
+        internal const char _cReplacement = '?';
 
         internal InternalDecoderBestFitFallback(Encoding encoding)
         {
@@ -102,7 +102,7 @@ namespace System.Text
 
             _cBestFit = TryBestFit(bytesUnknown);
             if (_cBestFit == '\0')
-                _cBestFit = _oFallback._cReplacement;
+                _cBestFit = InternalDecoderBestFitFallback._cReplacement;
 
             _iCount = _iSize = 1;
 

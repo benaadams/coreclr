@@ -218,8 +218,7 @@ namespace System.StubHelpers
             }
             else
             {
-                byte trailByte;
-                bool hasTrailByte = strManaged.TryGetTrailByte(out trailByte);
+                bool hasTrailByte = strManaged.TryGetTrailByte(out byte trailByte);
 
                 uint lengthInBytes = (uint)strManaged.Length * 2;
 
@@ -339,14 +338,12 @@ namespace System.StubHelpers
                 return IntPtr.Zero;
             }
 
-            byte* pNative;
-
             cch = strManaged.Length;
 
             // length field at negative offset + (# of characters incl. the terminator) * max ANSI char size
             int nbytes = checked(sizeof(uint) + ((cch + 1) * Marshal.SystemMaxDBCSCharSize));
 
-            pNative = (byte*)Marshal.AllocCoTaskMem(nbytes);
+            byte* pNative = (byte*)Marshal.AllocCoTaskMem(nbytes);
             int* pLength = (int*)pNative;
 
             pNative = pNative + sizeof(uint);
@@ -358,8 +355,7 @@ namespace System.StubHelpers
             }
             else
             {
-                int nbytesused;
-                byte[] bytes = AnsiCharMarshaler.DoAnsiConversion(strManaged, fBestFit, fThrowOnUnmappableChar, out nbytesused);
+                byte[] bytes = AnsiCharMarshaler.DoAnsiConversion(strManaged, fBestFit, fThrowOnUnmappableChar, out int nbytesused);
 
                 Debug.Assert(nbytesused < nbytes, "Insufficient buffer allocated in VBByValStrMarshaler.ConvertToNative");
                 Buffer.Memcpy(pNative, 0, bytes, 0, nbytesused);
@@ -1305,8 +1301,7 @@ namespace System.StubHelpers
                     throw new ArgumentException(SR.Format(SR.Argument_WinRTSystemRuntimeType, managedType.GetType().ToString()));
                 }
 
-                bool isPrimitive;
-                string winrtTypeName = WinRTTypeNameConverter.ConvertToWinRTTypeName(managedType, out isPrimitive);
+                string winrtTypeName = WinRTTypeNameConverter.ConvertToWinRTTypeName(managedType, out bool isPrimitive);
                 if (winrtTypeName != null)
                 {
                     // Must be a WinRT type, either in a WinMD or a Primitive
@@ -1353,8 +1348,7 @@ namespace System.StubHelpers
             }
             else
             {
-                bool isPrimitive;
-                managedType = WinRTTypeNameConverter.GetTypeFromWinRTTypeName(typeName, out isPrimitive);
+                managedType = WinRTTypeNameConverter.GetTypeFromWinRTTypeName(typeName, out bool isPrimitive);
 
                 // TypeSource must match
                 if (isPrimitive != (pNativeType->typeKind == TypeKind.Primitive))

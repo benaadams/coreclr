@@ -14,15 +14,13 @@ namespace System.Buffers.Text
                 value = default;
                 return false;
             }
-            byte nextCharacter;
-            byte nextDigit;
 
             // Cache Parsers.s_HexLookup in order to avoid static constructor checks
             byte[] hexLookup = ParserHelpers.s_hexLookup;
 
             // Parse the first digit separately. If invalid here, we need to return false.
-            nextCharacter = source[0];
-            nextDigit = hexLookup[nextCharacter];
+            byte nextCharacter = source[0];
+            byte nextDigit = hexLookup[nextCharacter];
             if (nextDigit == 0xFF)
             {
                 bytesConsumed = 0;
@@ -97,15 +95,13 @@ namespace System.Buffers.Text
                 value = default;
                 return false;
             }
-            byte nextCharacter;
-            byte nextDigit;
 
             // Cache Parsers.s_HexLookup in order to avoid static constructor checks
             byte[] hexLookup = ParserHelpers.s_hexLookup;
 
             // Parse the first digit separately. If invalid here, we need to return false.
-            nextCharacter = source[0];
-            nextDigit = hexLookup[nextCharacter];
+            byte nextCharacter = source[0];
+            byte nextDigit = hexLookup[nextCharacter];
             if (nextDigit == 0xFF)
             {
                 bytesConsumed = 0;
@@ -180,15 +176,13 @@ namespace System.Buffers.Text
                 value = default;
                 return false;
             }
-            byte nextCharacter;
-            byte nextDigit;
 
             // Cache Parsers.s_HexLookup in order to avoid static constructor checks
             byte[] hexLookup = ParserHelpers.s_hexLookup;
 
             // Parse the first digit separately. If invalid here, we need to return false.
-            nextCharacter = source[0];
-            nextDigit = hexLookup[nextCharacter];
+            byte nextCharacter = source[0];
+            byte nextDigit = hexLookup[nextCharacter];
             if (nextDigit == 0xFF)
             {
                 bytesConsumed = 0;
@@ -263,15 +257,13 @@ namespace System.Buffers.Text
                 value = default;
                 return false;
             }
-            byte nextCharacter;
-            byte nextDigit;
 
             // Cache Parsers.s_HexLookup in order to avoid static constructor checks
             byte[] hexLookup = ParserHelpers.s_hexLookup;
 
             // Parse the first digit separately. If invalid here, we need to return false.
-            nextCharacter = source[0];
-            nextDigit = hexLookup[nextCharacter];
+            byte nextCharacter = source[0];
+            byte nextDigit = hexLookup[nextCharacter];
             if (nextDigit == 0xFF)
             {
                 bytesConsumed = 0;

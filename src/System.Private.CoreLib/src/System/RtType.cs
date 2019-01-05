@@ -885,8 +885,7 @@ namespace System
 
                     MetadataImport scope = RuntimeTypeHandle.GetMetadataImport(declaringType);
 
-                    MetadataEnumResult tkFields;
-                    scope.EnumFields(tkDeclaringType, out tkFields);
+                    scope.EnumFields(tkDeclaringType, out MetadataEnumResult tkFields);
 
                     for (int i = 0; i < tkFields.Length; i++)
                     {
@@ -894,8 +893,7 @@ namespace System
                         Debug.Assert(MdToken.IsTokenOfType(tkField, MetadataTokenType.FieldDef));
                         Debug.Assert(!MdToken.IsNullToken(tkField));
 
-                        FieldAttributes fieldAttributes;
-                        scope.GetFieldDefProps(tkField, out fieldAttributes);
+                        scope.GetFieldDefProps(tkField, out FieldAttributes fieldAttributes);
 
                         FieldAttributes fieldAccess = fieldAttributes & FieldAttributes.FieldAccessMask;
 
@@ -911,8 +909,7 @@ namespace System
 
                             if (filter.RequiresStringComparison())
                             {
-                                MdUtf8String name;
-                                name = scope.GetName(tkField);
+                                MdUtf8String name = scope.GetName(tkField);
 
                                 if (!filter.Match(name))
                                     continue;
@@ -1061,8 +1058,7 @@ namespace System
                     RuntimeModule moduleHandle = RuntimeTypeHandle.GetModule(declaringType);
                     MetadataImport scope = ModuleHandle.GetMetadataImport(moduleHandle);
 
-                    MetadataEnumResult tkNestedClasses;
-                    scope.EnumNestedTypes(tkEnclosingType, out tkNestedClasses);
+                    scope.EnumNestedTypes(tkEnclosingType, out MetadataEnumResult tkNestedClasses);
 
                     for (int i = 0; i < tkNestedClasses.Length; i++)
                     {
@@ -1134,28 +1130,25 @@ namespace System
 
                     MetadataImport scope = RuntimeTypeHandle.GetMetadataImport(declaringType);
 
-                    MetadataEnumResult tkEvents;
-                    scope.EnumEvents(tkDeclaringType, out tkEvents);
+                    scope.EnumEvents(tkDeclaringType, out MetadataEnumResult tkEvents);
 
                     for (int i = 0; i < tkEvents.Length; i++)
                     {
                         int tkEvent = tkEvents[i];
-                        bool isPrivate;
 
                         Debug.Assert(!MdToken.IsNullToken(tkEvent));
                         Debug.Assert(MdToken.IsTokenOfType(tkEvent, MetadataTokenType.Event));
 
                         if (filter.RequiresStringComparison())
                         {
-                            MdUtf8String name;
-                            name = scope.GetName(tkEvent);
+                            MdUtf8String name = scope.GetName(tkEvent);
 
                             if (!filter.Match(name))
                                 continue;
                         }
 
                         RuntimeEventInfo eventInfo = new RuntimeEventInfo(
-                            tkEvent, declaringType, m_runtimeTypeCache, out isPrivate);
+                            tkEvent, declaringType, m_runtimeTypeCache, out bool isPrivate);
 
                         #region Remove Inherited Privates
                         if (declaringType != m_runtimeTypeCache.GetRuntimeType() && isPrivate)
@@ -1238,8 +1231,7 @@ namespace System
 
                     MetadataImport scope = RuntimeTypeHandle.GetMetadataImport(declaringType);
 
-                    MetadataEnumResult tkProperties;
-                    scope.EnumProperties(tkDeclaringType, out tkProperties);
+                    scope.EnumProperties(tkDeclaringType, out MetadataEnumResult tkProperties);
 
                     RuntimeModule declaringModuleHandle = RuntimeTypeHandle.GetModule(declaringType);
 
@@ -1251,7 +1243,6 @@ namespace System
                     for (int i = 0; i < tkProperties.Length; i++)
                     {
                         int tkProperty = tkProperties[i];
-                        bool isPrivate;
 
                         Debug.Assert(!MdToken.IsNullToken(tkProperty));
                         Debug.Assert(MdToken.IsTokenOfType(tkProperty, MetadataTokenType.Property));
@@ -1264,8 +1255,7 @@ namespace System
                                 continue;
                             }
 
-                            MdUtf8String name;
-                            name = declaringType.GetRuntimeModule().MetadataImport.GetName(tkProperty);
+                            MdUtf8String name = declaringType.GetRuntimeModule().MetadataImport.GetName(tkProperty);
 
                             if (!filter.Match(name))
                                 continue;
@@ -1273,7 +1263,7 @@ namespace System
 
                         RuntimePropertyInfo propertyInfo =
                             new RuntimePropertyInfo(
-                            tkProperty, declaringType, m_runtimeTypeCache, out isPrivate);
+                            tkProperty, declaringType, m_runtimeTypeCache, out bool isPrivate);
 
                         // If this is a class, not an interface
                         if (usedSlots != null)
@@ -1322,8 +1312,7 @@ namespace System
                             if (csPropertyInfos != null)
                             {
                                 string name = propertyInfo.Name;
-                                List<RuntimePropertyInfo> cache;
-                                if (!csPropertyInfos.TryGetValue(name, out cache))
+                                if (!csPropertyInfos.TryGetValue(name, out List<RuntimePropertyInfo> cache))
                                 {
                                     cache = new List<RuntimePropertyInfo>(1);
                                     csPropertyInfos[name] = cache;
@@ -2094,8 +2083,7 @@ namespace System
         // Used by the singular GetXXX APIs (Event, Field, Interface, NestedType) where prefixLookup is not supported.
         private static void FilterHelper(BindingFlags bindingFlags, ref string name, out bool ignoreCase, out MemberListType listType)
         {
-            bool prefixLookup;
-            FilterHelper(bindingFlags, ref name, false, out prefixLookup, out ignoreCase, out listType);
+            FilterHelper(bindingFlags, ref name, false, out bool prefixLookup, out ignoreCase, out listType);
         }
 
         // Only called by GetXXXCandidates, GetInterfaces, and GetNestedTypes when FilterHelper has set "prefixLookup" to true.
@@ -2438,9 +2426,7 @@ namespace System
             string name, int genericParameterCount, BindingFlags bindingAttr, CallingConventions callConv,
             Type[] types, bool allowPrefixLookup)
         {
-            bool prefixLookup, ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out bool ignoreCase, out MemberListType listType);
 
             RuntimeMethodInfo[] cache = Cache.GetMethodList(listType, name);
 
@@ -2465,9 +2451,7 @@ namespace System
             string name, BindingFlags bindingAttr, CallingConventions callConv,
             Type[] types, bool allowPrefixLookup)
         {
-            bool prefixLookup, ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out bool ignoreCase, out MemberListType listType);
 
             RuntimeConstructorInfo[] cache = Cache.GetConstructorList(listType, name);
 
@@ -2489,9 +2473,7 @@ namespace System
         private ListBuilder<PropertyInfo> GetPropertyCandidates(
             string name, BindingFlags bindingAttr, Type[] types, bool allowPrefixLookup)
         {
-            bool prefixLookup, ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out bool ignoreCase, out MemberListType listType);
 
             RuntimePropertyInfo[] cache = Cache.GetPropertyList(listType, name);
 
@@ -2514,9 +2496,7 @@ namespace System
 
         private ListBuilder<EventInfo> GetEventCandidates(string name, BindingFlags bindingAttr, bool allowPrefixLookup)
         {
-            bool prefixLookup, ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out bool ignoreCase, out MemberListType listType);
 
             RuntimeEventInfo[] cache = Cache.GetEventList(listType, name);
 
@@ -2538,9 +2518,7 @@ namespace System
 
         private ListBuilder<FieldInfo> GetFieldCandidates(string name, BindingFlags bindingAttr, bool allowPrefixLookup)
         {
-            bool prefixLookup, ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out bool ignoreCase, out MemberListType listType);
 
             RuntimeFieldInfo[] cache = Cache.GetFieldList(listType, name);
 
@@ -2562,12 +2540,9 @@ namespace System
 
         private ListBuilder<Type> GetNestedTypeCandidates(string fullname, BindingFlags bindingAttr, bool allowPrefixLookup)
         {
-            bool prefixLookup, ignoreCase;
             bindingAttr &= ~BindingFlags.Static;
-            string name, ns;
-            MemberListType listType;
-            SplitName(fullname, out name, out ns);
-            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
+            SplitName(fullname, out string name, out string ns);
+            FilterHelper(bindingAttr, ref name, allowPrefixLookup, out bool prefixLookup, out bool ignoreCase, out MemberListType listType);
 
             RuntimeType[] cache = Cache.GetNestedTypeList(listType, name);
 
@@ -2848,10 +2823,7 @@ namespace System
         public override EventInfo GetEvent(string name, BindingFlags bindingAttr)
         {
             if (name == null) throw new ArgumentNullException();
-
-            bool ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, out bool ignoreCase, out MemberListType listType);
 
             RuntimeEventInfo[] cache = Cache.GetEventList(listType, name);
             EventInfo match = null;
@@ -2876,10 +2848,7 @@ namespace System
         public override FieldInfo GetField(string name, BindingFlags bindingAttr)
         {
             if (name == null) throw new ArgumentNullException();
-
-            bool ignoreCase;
-            MemberListType listType;
-            FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
+            FilterHelper(bindingAttr, ref name, out bool ignoreCase, out MemberListType listType);
 
             RuntimeFieldInfo[] cache = Cache.GetFieldList(listType, name);
             FieldInfo match = null;
@@ -2922,11 +2891,8 @@ namespace System
 
             if (ignoreCase)
                 bindingAttr |= BindingFlags.IgnoreCase;
-
-            string name, ns;
-            MemberListType listType;
-            SplitName(fullname, out name, out ns);
-            FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
+            SplitName(fullname, out string name, out string ns);
+            FilterHelper(bindingAttr, ref name, out ignoreCase, out MemberListType listType);
 
             RuntimeType[] cache = Cache.GetInterfaceList(listType, name);
 
@@ -2951,12 +2917,9 @@ namespace System
         {
             if (fullname == null) throw new ArgumentNullException();
 
-            bool ignoreCase;
             bindingAttr &= ~BindingFlags.Static;
-            string name, ns;
-            MemberListType listType;
-            SplitName(fullname, out name, out ns);
-            FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
+            SplitName(fullname, out string name, out string ns);
+            FilterHelper(bindingAttr, ref name, out bool ignoreCase, out MemberListType listType);
 
             RuntimeType[] cache = Cache.GetNestedTypeList(listType, name);
 
@@ -3254,8 +3217,7 @@ namespace System
 
                     if (constraint.IsGenericParameter)
                     {
-                        GenericParameterAttributes special;
-                        special = constraint.GenericParameterAttributes & GenericParameterAttributes.SpecialConstraintMask;
+                        GenericParameterAttributes special = constraint.GenericParameterAttributes & GenericParameterAttributes.SpecialConstraintMask;
 
                         if ((special & GenericParameterAttributes.ReferenceTypeConstraint) == 0 &&
                             (special & GenericParameterAttributes.NotNullableValueTypeConstraint) == 0)
@@ -3267,8 +3229,7 @@ namespace System
 
                 if (baseType == ObjectType)
                 {
-                    GenericParameterAttributes special;
-                    special = GenericParameterAttributes & GenericParameterAttributes.SpecialConstraintMask;
+                    GenericParameterAttributes special = GenericParameterAttributes & GenericParameterAttributes.SpecialConstraintMask;
                     if ((special & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0)
                         baseType = ValueType;
                 }
@@ -3384,9 +3345,8 @@ namespace System
                 if (!IsGenericParameter)
                     throw new InvalidOperationException(SR.Arg_NotGenericParameter);
 
-                GenericParameterAttributes attributes;
 
-                RuntimeTypeHandle.GetMetadataImport(this).GetGenericParamProps(MetadataToken, out attributes);
+                RuntimeTypeHandle.GetMetadataImport(this).GetGenericParamProps(MetadataToken, out GenericParameterAttributes attributes);
 
                 return attributes;
             }

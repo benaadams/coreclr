@@ -60,18 +60,11 @@ namespace System.Reflection.Emit
 
         public void SetLocalSymInfo(string name, int startOffset, int endOffset)
         {
-            ModuleBuilder dynMod;
-            SignatureHelper sigHelp;
-            int sigLength;
-            byte[] signature;
-            byte[] mungedSig;
-            int index;
-
             MethodBuilder methodBuilder = m_methodBuilder as MethodBuilder;
             if (methodBuilder == null)
                 // it's a light code gen entity
                 throw new NotSupportedException();
-            dynMod = (ModuleBuilder)methodBuilder.Module;
+            ModuleBuilder dynMod = (ModuleBuilder)methodBuilder.Module;
             if (methodBuilder.IsTypeCreated())
             {
                 // cannot change method after its containing type has been created
@@ -85,19 +78,19 @@ namespace System.Reflection.Emit
                 throw new InvalidOperationException(SR.InvalidOperation_NotADebugModule);
             }
 
-            sigHelp = SignatureHelper.GetFieldSigHelper(dynMod);
+            SignatureHelper sigHelp = SignatureHelper.GetFieldSigHelper(dynMod);
             sigHelp.AddArgument(m_localType);
-            signature = sigHelp.InternalGetSignature(out sigLength);
+            byte[] signature = sigHelp.InternalGetSignature(out int sigLength);
 
             // The symbol store doesn't want the calling convention on the
             // front of the signature, but InternalGetSignature returns
             // the callinging convention. So we strip it off. This is a
             // bit unfortunate, since it means that we need to allocate
             // yet another array of bytes...  
-            mungedSig = new byte[sigLength - 1];
+            byte[] mungedSig = new byte[sigLength - 1];
             Buffer.BlockCopy(signature, 1, mungedSig, 0, sigLength - 1);
 
-            index = methodBuilder.GetILGenerator().m_ScopeTree.GetCurrentActiveScopeIndex();
+            int index = methodBuilder.GetILGenerator().m_ScopeTree.GetCurrentActiveScopeIndex();
             if (index == -1)
             {
                 // top level scope information is kept with methodBuilder

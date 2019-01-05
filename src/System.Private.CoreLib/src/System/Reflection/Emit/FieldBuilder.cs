@@ -49,8 +49,7 @@ namespace System.Reflection.Emit
             SignatureHelper sigHelp = SignatureHelper.GetFieldSigHelper(m_typeBuilder.Module);
             sigHelp.AddArgument(type, requiredCustomModifiers, optionalCustomModifiers);
 
-            int sigLength;
-            byte[] signature = sigHelp.InternalGetSignature(out sigLength);
+            byte[] signature = sigHelp.InternalGetSignature(out int sigLength);
 
             m_fieldTok = TypeBuilder.DefineField(m_typeBuilder.GetModuleBuilder().GetNativeHandle(),
                 typeBuilder.TypeToken.Token, fieldName, signature, sigLength, m_Attributes);

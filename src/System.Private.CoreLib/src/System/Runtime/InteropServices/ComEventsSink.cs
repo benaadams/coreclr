@@ -13,6 +13,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace System.Runtime.InteropServices
 {
@@ -142,8 +143,7 @@ namespace System.Runtime.InteropServices
             Debug.Assert(_connectionPoint == null, "comevent sink is already advised");
 
             ComTypes.IConnectionPointContainer cpc = (ComTypes.IConnectionPointContainer)rcw;
-            ComTypes.IConnectionPoint cp;
-            cpc.FindConnectionPoint(ref _iidSourceItf, out cp);
+            cpc.FindConnectionPoint(ref _iidSourceItf, out IConnectionPoint cp);
 
             object sinkObject = this;
 

@@ -2,16 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//
-
-using System;
-using System.Runtime;
-using System.Security;
-using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
 using Internal.Runtime.CompilerServices;
 
 namespace System.Runtime.InteropServices.WindowsRuntime
@@ -71,8 +62,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         {
             IBindableVector _this = Unsafe.As<IBindableVector>(this);
 
-            uint index;
-            return _this.IndexOf(item, out index);
+            return _this.IndexOf(item, out uint index);
         }
 
         // void Clear()
@@ -99,8 +89,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         {
             IBindableVector _this = Unsafe.As<IBindableVector>(this);
 
-            uint index;
-            bool exists = _this.IndexOf(item, out index);
+            bool exists = _this.IndexOf(item, out uint index);
 
             if (!exists)
                 return -1;
@@ -128,8 +117,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         {
             IBindableVector _this = Unsafe.As<IBindableVector>(this);
 
-            uint index;
-            bool exists = _this.IndexOf(item, out index);
+            bool exists = _this.IndexOf(item, out uint index);
 
             if (exists)
             {

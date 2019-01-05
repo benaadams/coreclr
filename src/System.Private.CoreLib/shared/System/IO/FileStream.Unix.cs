@@ -215,8 +215,7 @@ namespace System.IO
         private long GetLengthInternal()
         {
             // Get the length of the file as reported by the OS
-            Interop.Sys.FileStatus status;
-            CheckFileCall(Interop.Sys.FStat(_fileHandle, out status));
+            CheckFileCall(Interop.Sys.FStat(_fileHandle, out Interop.Sys.FileStatus status));
             long length = status.Size;
 
             // But we may have buffered some data to be written that puts our length

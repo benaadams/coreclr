@@ -16,14 +16,12 @@ namespace System.Globalization
                 return null;
             }
 
-            string[] eraNames;
-            if (!CalendarData.EnumCalendarInfo("ja-JP", CalendarId.JAPAN, CalendarDataType.EraNames, out eraNames))
+            if (!CalendarData.EnumCalendarInfo("ja-JP", CalendarId.JAPAN, CalendarDataType.EraNames, out string[] eraNames))
             {
                 return null;
             }
 
-            string[] abbrevEnglishEraNames;
-            if (!CalendarData.EnumCalendarInfo("en", CalendarId.JAPAN, CalendarDataType.AbbrevEraNames, out abbrevEnglishEraNames))
+            if (!CalendarData.EnumCalendarInfo("en", CalendarId.JAPAN, CalendarDataType.AbbrevEraNames, out string[] abbrevEnglishEraNames))
             {
                 return null;
             }
@@ -34,8 +32,7 @@ namespace System.Globalization
             int latestEra = Interop.Globalization.GetLatestJapaneseEra();
             for (int i = latestEra; i >= 0; i--)
             {
-                DateTime dt;
-                if (!GetJapaneseEraStartDate(i, out dt))
+                if (!GetJapaneseEraStartDate(i, out DateTime dt))
                 {
                     return null;
                 }
@@ -76,14 +73,11 @@ namespace System.Globalization
 
             dateTime = default(DateTime);
 
-            int startYear;
-            int startMonth;
-            int startDay;
             bool result = Interop.Globalization.GetJapaneseEraStartDate(
                 era,
-                out startYear,
-                out startMonth,
-                out startDay);
+                out int startYear,
+                out int startMonth,
+                out int startDay);
 
             if (result)
             {

@@ -38,7 +38,6 @@ namespace System
         public override string ToString()
         {
             Span<char> span = stackalloc char[2 + (2 * 11)]; // 2 for "..", then for each index 1 for '^' and 10 for longest possible uint
-            int charsWritten;
             int pos = 0;
 
             if (Start.FromEnd)
@@ -46,7 +45,7 @@ namespace System
                 span[0] = '^';
                 pos = 1;
             }
-            bool formatted = ((uint)Start.Value).TryFormat(span.Slice(pos), out charsWritten);
+            bool formatted = ((uint)Start.Value).TryFormat(span.Slice(pos), out int charsWritten);
             Debug.Assert(formatted);
             pos += charsWritten;
 

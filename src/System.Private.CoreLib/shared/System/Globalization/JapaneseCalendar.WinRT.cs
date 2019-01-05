@@ -23,12 +23,7 @@ namespace System.Globalization
 
             for (int i = erasCount; i > 0; i--)
             {
-                DateTimeOffset dateOffset;
-
-                string eraName;
-                string abbreviatedEraName;
-
-                if (!GetJapaneseEraInfo(i, out dateOffset, out eraName, out abbreviatedEraName))
+                if (!GetJapaneseEraInfo(i, out DateTimeOffset dateOffset, out string eraName, out string abbreviatedEraName))
                 {
                     return null;
                 }

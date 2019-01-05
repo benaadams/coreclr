@@ -2,28 +2,15 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// RuntimeHelpers
-//    This class defines a set of static methods that provide support for compilers.
-//
-//
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
+using Internal.Runtime.CompilerServices;
 
 namespace System.Runtime.CompilerServices
 {
-    using System;
-    using System.Diagnostics;
-    using System.Security;
-    using System.Runtime;
-    using System.Runtime.CompilerServices;
-    using System.Runtime.InteropServices;
-    using System.Runtime.ConstrainedExecution;
-    using System.Runtime.Serialization;
-    using System.Threading;
-    using System.Runtime.Versioning;
-    using Internal.Runtime.CompilerServices;
-
+    // This class defines a set of static methods that provide support for compilers.
     public static class RuntimeHelpers
     {
         // Exposed here as a more appropriate place than on FormatterServices itself,
@@ -103,8 +90,7 @@ namespace System.Runtime.CompilerServices
         {
             unsafe
             {
-                int length;
-                IntPtr[] instantiationHandles = RuntimeTypeHandle.CopyRuntimeTypeHandles(instantiation, out length);
+                IntPtr[] instantiationHandles = RuntimeTypeHandle.CopyRuntimeTypeHandles(instantiation, out int length);
                 fixed (IntPtr* pInstantiation = instantiationHandles)
                 {
                     _PrepareMethod(method.GetMethodInfo(), pInstantiation, length);

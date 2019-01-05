@@ -128,8 +128,7 @@ namespace System.Runtime.CompilerServices
 
             lock (_lock)
             {
-                object otherValue;
-                int entryIndex = _container.FindEntry(key, out otherValue);
+                int entryIndex = _container.FindEntry(key, out object otherValue);
                 if (entryIndex != -1)
                 {
                     ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_AddingDuplicate);
@@ -154,8 +153,7 @@ namespace System.Runtime.CompilerServices
 
             lock (_lock)
             {
-                object otherValue;
-                int entryIndex = _container.FindEntry(key, out otherValue);
+                int entryIndex = _container.FindEntry(key, out object otherValue);
 
                 // if we found a key we should just update, if no we should create a new entry.
                 if (entryIndex != -1)
@@ -244,8 +242,7 @@ namespace System.Runtime.CompilerServices
                 throw new ArgumentNullException(nameof(createValueCallback));
             }
 
-            TValue existingValue;
-            return TryGetValue(key, out existingValue) ?
+            return TryGetValue(key, out TValue existingValue) ?
                 existingValue :
                 GetValueLocked(key, createValueCallback);
         }
@@ -259,8 +256,7 @@ namespace System.Runtime.CompilerServices
             lock (_lock)
             {
                 // Now that we've taken the lock, must recheck in case we lost a race to add the key.
-                TValue existingValue;
-                if (_container.TryGetValueWorker(key, out existingValue))
+                if (_container.TryGetValueWorker(key, out TValue existingValue))
                 {
                     return existingValue;
                 }
@@ -394,9 +390,7 @@ namespace System.Runtime.CompilerServices
                             while (_currentIndex < _maxIndexInclusive)
                             {
                                 _currentIndex++;
-                                TKey key;
-                                TValue value;
-                                if (c.TryGetEntry(_currentIndex, out key, out value))
+                                if (c.TryGetEntry(_currentIndex, out TKey key, out TValue value))
                                 {
                                     _current = new KeyValuePair<TKey, TValue>(key, value);
                                     return true;
@@ -584,8 +578,7 @@ namespace System.Runtime.CompilerServices
             //----------------------------------------------------------------------------------------
             internal bool TryGetValueWorker(TKey key, out TValue value)
             {
-                object secondary;
-                int entryIndex = FindEntry(key, out secondary);
+                int entryIndex = FindEntry(key, out object secondary);
                 value = Unsafe.As<TValue>(secondary);
                 return entryIndex != -1;
             }
@@ -622,8 +615,7 @@ namespace System.Runtime.CompilerServices
             {
                 if (index < _entries.Length)
                 {
-                    object oKey, oValue;
-                    oKey = _entries[index].depHnd.GetPrimaryAndSecondary(out oValue);
+                    object oKey = _entries[index].depHnd.GetPrimaryAndSecondary(out object oValue);
                     GC.KeepAlive(this); // ensure we don't get finalized while accessing DependentHandles.
 
                     if (oKey != null)
@@ -657,8 +649,7 @@ namespace System.Runtime.CompilerServices
             {
                 VerifyIntegrity();
 
-                object value;
-                int entryIndex = FindEntry(key, out value);
+                int entryIndex = FindEntry(key, out object value);
                 if (entryIndex != -1)
                 {
                     RemoveIndex(entryIndex);

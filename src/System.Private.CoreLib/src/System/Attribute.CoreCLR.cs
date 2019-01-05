@@ -241,12 +241,11 @@ namespace System
             // class inherits from and return the respective ParameterInfo attributes
 
             List<Type> disAllowMultiple = new List<Type>();
-            object[] objAttr;
 
             if (type == null)
                 type = typeof(Attribute);
 
-            objAttr = param.GetCustomAttributes(type, false);
+            object[] objAttr = param.GetCustomAttributes(type, false);
 
             for (int i = 0; i < objAttr.Length; i++)
             {
@@ -395,8 +394,7 @@ namespace System
             for (int i = 0; i < attributes.Length; i++)
             {
                 Type attrType = attributes[i].GetType();
-                AttributeUsageAttribute usage = null;
-                types.TryGetValue(attrType, out usage);
+                types.TryGetValue(attrType, out AttributeUsageAttribute usage);
 
                 if (usage == null)
                 {

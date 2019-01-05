@@ -301,8 +301,7 @@ namespace System.Reflection
 
         internal void nInit()
         {
-            RuntimeAssembly dummy = null;
-            nInit(out dummy, false);
+            nInit(out RuntimeAssembly dummy, false);
         }
 
         internal void SetProcArchIndex(PortableExecutableKinds pek, ImageFileMachine ifm)

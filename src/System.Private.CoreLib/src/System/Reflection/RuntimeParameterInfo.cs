@@ -16,16 +16,14 @@ namespace System.Reflection
         {
             Debug.Assert(method is RuntimeMethodInfo || method is RuntimeConstructorInfo);
 
-            ParameterInfo dummy;
-            return GetParameters(method, member, sig, out dummy, false);
+            return GetParameters(method, member, sig, out ParameterInfo dummy, false);
         }
 
         internal static unsafe ParameterInfo GetReturnParameter(IRuntimeMethodInfo method, MemberInfo member, Signature sig)
         {
             Debug.Assert(method is RuntimeMethodInfo || method is RuntimeConstructorInfo);
 
-            ParameterInfo returnParameter;
-            GetParameters(method, member, sig, out returnParameter, true);
+            GetParameters(method, member, sig, out ParameterInfo returnParameter, true);
             return returnParameter;
         }
 
@@ -45,8 +43,7 @@ namespace System.Reflection
             {
                 MetadataImport scope = RuntimeTypeHandle.GetMetadataImport(RuntimeMethodHandle.GetDeclaringType(methodHandle));
 
-                MetadataEnumResult tkParamDefs;
-                scope.EnumParams(tkMethodDef, out tkParamDefs);
+                scope.EnumParams(tkMethodDef, out MetadataEnumResult tkParamDefs);
 
                 cParamDefs = tkParamDefs.Length;
 
@@ -58,10 +55,10 @@ namespace System.Reflection
                 for (int i = 0; i < cParamDefs; i++)
                 {
                     #region Populate ParameterInfos
-                    ParameterAttributes attr;
-                    int position, tkParamDef = tkParamDefs[i];
 
-                    scope.GetParamDefProps(tkParamDef, out position, out attr);
+                    int tkParamDef = tkParamDefs[i];
+
+                    scope.GetParamDefProps(tkParamDef, out int position, out ParameterAttributes attr);
 
                     position--;
 
@@ -246,8 +243,7 @@ namespace System.Reflection
                 {
                     if (!MdToken.IsNullToken(m_tkParamDef))
                     {
-                        string name;
-                        name = m_scope.GetName(m_tkParamDef).ToString();
+                        string name = m_scope.GetName(m_tkParamDef).ToString();
                         NameImpl = name;
                     }
 

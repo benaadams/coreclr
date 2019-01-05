@@ -579,12 +579,7 @@ namespace System.Diagnostics.Tracing
         {
             m_config = ValidateSettings(settings);
 
-            Guid eventSourceGuid;
-            string eventSourceName;
-
-            EventMetadata[] eventDescriptors;
-            byte[] manifest;
-            GetMetadata(out eventSourceGuid, out eventSourceName, out eventDescriptors, out manifest);
+            GetMetadata(out Guid eventSourceGuid, out string eventSourceName, out EventMetadata[] eventDescriptors, out byte[] manifest);
 
             if (eventSourceGuid.Equals(Guid.Empty) || eventSourceName == null)
             {
@@ -2687,13 +2682,10 @@ namespace System.Diagnostics.Tracing
             if (m_eventData == null)
             {
                 Guid eventSourceGuid = Guid.Empty;
-                string eventSourceName = null;
-                EventMetadata[] eventData = null;
-                byte[] manifest = null;
 
                 // Try the GetMetadata provided by the ILTransform in ProjectN. The default sets all to null, and in that case we fall back
                 // to the reflection approach.
-                GetMetadata(out eventSourceGuid, out eventSourceName, out eventData, out manifest);
+                GetMetadata(out eventSourceGuid, out string eventSourceName, out EventMetadata[] eventData, out byte[] manifest);
 
                 if (eventSourceGuid.Equals(Guid.Empty) || eventSourceName == null || eventData == null || manifest == null)
                 {
@@ -5196,8 +5188,8 @@ namespace System.Diagnostics.Tracing
                 {
                     ManifestError(SR.Format(SR.EventSource_IllegalOpcodeValue, name, value));
                 }
-                string prevName;
-                if (opcodeTab.TryGetValue(value, out prevName) && !name.Equals(prevName, StringComparison.Ordinal))
+
+                if (opcodeTab.TryGetValue(value, out string prevName) && !name.Equals(prevName, StringComparison.Ordinal))
                 {
                     ManifestError(SR.Format(SR.EventSource_OpcodeCollision, name, prevName, value));
                 }
@@ -5212,8 +5204,8 @@ namespace System.Diagnostics.Tracing
                 {
                     ManifestError(SR.Format(SR.EventSource_IllegalTaskValue, name, value));
                 }
-                string prevName;
-                if (taskTab != null && taskTab.TryGetValue(value, out prevName) && !name.Equals(prevName, StringComparison.Ordinal))
+
+                if (taskTab != null && taskTab.TryGetValue(value, out string prevName) && !name.Equals(prevName, StringComparison.Ordinal))
                 {
                     ManifestError(SR.Format(SR.EventSource_TaskCollision, name, prevName, value));
                 }
@@ -5234,8 +5226,8 @@ namespace System.Diagnostics.Tracing
                 {
                     ManifestError(SR.Format(SR.EventSource_IllegalKeywordsValue, name, "0x" + value.ToString("x", CultureInfo.CurrentCulture)));
                 }
-                string prevName;
-                if (keywordTab != null && keywordTab.TryGetValue(value, out prevName) && !name.Equals(prevName, StringComparison.Ordinal))
+
+                if (keywordTab != null && keywordTab.TryGetValue(value, out string prevName) && !name.Equals(prevName, StringComparison.Ordinal))
                 {
                     ManifestError(SR.Format(SR.EventSource_KeywordCollision, name, prevName, "0x" + value.ToString("x", CultureInfo.CurrentCulture)));
                 }
@@ -5400,8 +5392,7 @@ namespace System.Diagnostics.Tracing
 
             // at this point we have all the information we need to translate the C# Message
             // to the manifest string we'll put in the stringTab
-            string msg;
-            if (stringTab.TryGetValue("event_" + eventName, out msg))
+            if (stringTab.TryGetValue("event_" + eventName, out string msg))
             {
                 msg = TranslateToManifestConvention(msg, eventName);
                 stringTab["event_" + eventName] = msg;
@@ -5435,8 +5426,7 @@ namespace System.Diagnostics.Tracing
             if (channelTab.Count == MaxCountChannels)
                 ManifestError(SR.EventSource_MaxChannelExceeded);
 
-            ChannelInfo info;
-            if (!channelTab.TryGetValue((int)channel, out info))
+            if (!channelTab.TryGetValue((int)channel, out ChannelInfo info))
             {
                 // If we were not given an explicit channel, allocate one.  
                 if (channelKeyword != 0)
@@ -5714,8 +5704,7 @@ namespace System.Diagnostics.Tracing
                 return;
 
             stringBuilder.Append(" message=\"$(string.").Append(key).Append(")\"");
-            string prevValue;
-            if (stringTab.TryGetValue(key, out prevValue) && !prevValue.Equals(value))
+            if (stringTab.TryGetValue(key, out string prevValue) && !prevValue.Equals(value))
             {
                 ManifestError(SR.Format(SR.EventSource_DuplicateStringKey, key), true);
                 return;
@@ -5769,8 +5758,7 @@ namespace System.Diagnostics.Tracing
 #if FEATURE_MANAGED_ETW_CHANNELS
         private string GetChannelName(EventChannel channel, string eventName, string eventMessage)
         {
-            ChannelInfo info = null;
-            if (channelTab == null || !channelTab.TryGetValue((int)channel, out info))
+            if (channelTab == null || !channelTab.TryGetValue((int)channel, out ChannelInfo info))
             {
                 if (channel < EventChannel.Admin) // || channel > EventChannel.Debug)
                     ManifestError(SR.Format(SR.EventSource_UndefinedChannel, channel, eventName));
@@ -5801,10 +5789,9 @@ namespace System.Diagnostics.Tracing
             if (task == EventTask.None)
                 return "";
 
-            string ret;
             if (taskTab == null)
                 taskTab = new Dictionary<int, string>();
-            if (!taskTab.TryGetValue((int)task, out ret))
+            if (!taskTab.TryGetValue((int)task, out string ret))
                 ret = taskTab[(int)task] = eventName;
             return ret;
         }
@@ -5837,8 +5824,7 @@ namespace System.Diagnostics.Tracing
                     return "win:Receive";
             }
 
-            string ret;
-            if (opcodeTab == null || !opcodeTab.TryGetValue((int)opcode, out ret))
+            if (opcodeTab == null || !opcodeTab.TryGetValue((int)opcode, out string ret))
             {
                 ManifestError(SR.Format(SR.EventSource_UndefinedOpcode, opcode, eventName), true);
                 ret = null;
@@ -5979,8 +5965,7 @@ namespace System.Diagnostics.Tracing
 
         private int TranslateIndexToManifestConvention(int idx, string evtName)
         {
-            List<int> byteArrArgIndices;
-            if (perEventByteArrayArgIndices.TryGetValue(evtName, out byteArrArgIndices))
+            if (perEventByteArrayArgIndices.TryGetValue(evtName, out List<int> byteArrArgIndices))
             {
                 foreach (var byArrIdx in byteArrArgIndices)
                 {

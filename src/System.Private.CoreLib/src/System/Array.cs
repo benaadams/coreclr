@@ -811,8 +811,7 @@ namespace System
             if (comparer == null) comparer = Comparer.Default;
             if (comparer == Comparer.Default)
             {
-                int retval;
-                bool r = TrySZBinarySearch(array, index, length, value, out retval);
+                bool r = TrySZBinarySearch(array, index, length, value, out int retval);
                 if (r)
                     return retval;
             }
@@ -1267,8 +1266,7 @@ namespace System
                 ThrowHelper.ThrowCountArgumentOutOfRange_ArgumentOutOfRange_Count();
 
             // Try calling a quick native method to handle primitive types.
-            int retVal;
-            bool r = TrySZIndexOf(array, startIndex, count, value, out retVal);
+            bool r = TrySZIndexOf(array, startIndex, count, value, out int retVal);
             if (r)
                 return retVal;
 
@@ -1429,8 +1427,7 @@ namespace System
                 ThrowHelper.ThrowRankException(ExceptionResource.Rank_MultiDimNotSupported);
 
             // Try calling a quick native method to handle primitive types.
-            int retVal;
-            bool r = TrySZLastIndexOf(array, startIndex, count, value, out retVal);
+            bool r = TrySZLastIndexOf(array, startIndex, count, value, out int retVal);
             if (r)
                 return retVal;
 

@@ -2,9 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//
-
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -198,8 +195,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
                 // value.  Therefore we need to make sure we really have the handler we want before taking the
                 // fast path.
                 EventRegistrationToken preferredToken = GetPreferredToken(handler);
-                T registeredHandler;
-                if (m_tokens.TryGetValue(preferredToken, out registeredHandler))
+                if (m_tokens.TryGetValue(preferredToken, out T registeredHandler))
                 {
                     if (registeredHandler == handler)
                     {
@@ -230,8 +226,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
 
         private void RemoveEventHandlerNoLock(EventRegistrationToken token)
         {
-            T handler;
-            if (m_tokens.TryGetValue(token, out handler))
+            if (m_tokens.TryGetValue(token, out T handler))
             {
                 m_tokens.Remove(token);
 

@@ -11,9 +11,8 @@ namespace System.Globalization
             if (GlobalizationMode.Invariant)
                 return CultureInfo.InvariantCulture;
 
-            CultureInfo cultureInfo = null;
-            string localeName;
-            if (CultureData.GetDefaultLocaleName(out localeName))
+            CultureInfo cultureInfo;
+            if (CultureData.GetDefaultLocaleName(out string localeName))
             {
                 cultureInfo = GetCultureByName(localeName);
             }

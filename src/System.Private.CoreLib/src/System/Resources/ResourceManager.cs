@@ -4,35 +4,25 @@
 
 /*============================================================
 **
-** 
-** 
-**
-**
 ** Purpose: Default way to access String and Object resources
 ** from an assembly.
 **
-** 
 ===========================================================*/
+
+using System;
+using System.IO;
+using System.Globalization;
+using System.Collections;
+using System.Reflection;
+using System.Threading;
+using System.Collections.Generic;
+using System.Diagnostics;
+#if FEATURE_APPX
+using Internal.Resources;
+#endif
 
 namespace System.Resources
 {
-    using System;
-    using System.IO;
-    using System.Globalization;
-    using System.Collections;
-    using System.Text;
-    using System.Reflection;
-    using System.Security;
-    using System.Threading;
-    using System.Runtime.InteropServices;
-    using System.Runtime.CompilerServices;
-    using Microsoft.Win32;
-    using System.Collections.Generic;
-    using System.Runtime.Versioning;
-    using System.Diagnostics;
-#if FEATURE_APPX
-    using Internal.Resources;
-#endif
     // Resource Manager exposes an assembly's resources to an application for
     // the correct CultureInfo.  An example would be localizing text for a 
     // user-visible message.  Create a set of resource files listing a name 
@@ -601,8 +591,7 @@ namespace System.Resources
             lock (localResourceSets)
             {
                 // If another thread added this culture, return that.
-                ResourceSet lostRace;
-                if (localResourceSets.TryGetValue(cultureName, out lostRace))
+                if (localResourceSets.TryGetValue(cultureName, out ResourceSet lostRace))
                 {
                     if (!object.ReferenceEquals(lostRace, rs))
                     {

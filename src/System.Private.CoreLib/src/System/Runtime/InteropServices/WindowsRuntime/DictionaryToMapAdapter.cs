@@ -2,17 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//
-
-using System;
-using System.Security;
-using System.Reflection;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
 using Internal.Runtime.CompilerServices;
 
 namespace System.Runtime.InteropServices.WindowsRuntime
@@ -36,8 +28,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         internal V Lookup<K, V>(K key)
         {
             IDictionary<K, V> _this = Unsafe.As<IDictionary<K, V>>(this);
-            V value;
-            bool keyFound = _this.TryGetValue(key, out value);
+            bool keyFound = _this.TryGetValue(key, out V value);
 
             if (!keyFound)
             {

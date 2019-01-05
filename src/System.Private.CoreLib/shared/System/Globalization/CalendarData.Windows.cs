@@ -116,9 +116,7 @@ namespace System.Globalization
                 return Invariant.iTwoDigitYearMax;
             }
 
-            int twoDigitYearMax = -1;
-
-            if (!CallGetCalendarInfoEx(null, calendarId, (uint)CAL_ITWODIGITYEARMAX, out twoDigitYearMax))
+            if (!CallGetCalendarInfoEx(null, calendarId, (uint)CAL_ITWODIGITYEARMAX, out int twoDigitYearMax))
             {
                 twoDigitYearMax = -1;
             }
@@ -166,9 +164,8 @@ namespace System.Globalization
         {
             Debug.Assert(!GlobalizationMode.Invariant);
 
-            string data;
             // Taiwanese calendar get listed as one of the optional zh-TW calendars only when having zh-TW UI 
-            return CallGetCalendarInfoEx("zh-TW", CalendarId.TAIWAN, CAL_SCALNAME, out data);
+            return CallGetCalendarInfoEx("zh-TW", CalendarId.TAIWAN, CAL_SCALNAME, out string data);
         }
 
         // PAL Layer ends here
@@ -215,14 +212,12 @@ namespace System.Globalization
         ////////////////////////////////////////////////////////////////////////
         private static void CheckSpecialCalendar(ref CalendarId calendar, ref string localeName)
         {
-            string data;
-
             // Gregorian-US isn't always available in the OS, however it is the same for all locales
             switch (calendar)
             {
                 case CalendarId.GREGORIAN_US:
                     // See if this works
-                    if (!CallGetCalendarInfoEx(localeName, calendar, CAL_SCALNAME, out data))
+                    if (!CallGetCalendarInfoEx(localeName, calendar, CAL_SCALNAME, out string data))
                     {
                         // Failed, set it to a locale (fa-IR) that's alway has Gregorian US available in the OS
                         localeName = "fa-IR";
@@ -459,9 +454,8 @@ namespace System.Globalization
             const uint LOCALE_SNAME = 0x0000005c;
             const string LOCALE_NAME_USER_DEFAULT = null;
 
-            int result;
             char* localeName = stackalloc char[LOCALE_NAME_MAX_LENGTH];
-            result = CultureData.GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, localeName, LOCALE_NAME_MAX_LENGTH);
+            int result = CultureData.GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, localeName, LOCALE_NAME_MAX_LENGTH);
 
             return result <= 0 ? "" : new string(localeName, 0, result - 1); // exclude the null termination
         }

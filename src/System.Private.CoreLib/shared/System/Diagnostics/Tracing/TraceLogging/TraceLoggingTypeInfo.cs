@@ -189,8 +189,7 @@ namespace System.Diagnostics.Tracing
         {
             var cache = threadCache ?? (threadCache = new Dictionary<Type, TraceLoggingTypeInfo>());
 
-            TraceLoggingTypeInfo instance;
-            if (!cache.TryGetValue(type, out instance))
+            if (!cache.TryGetValue(type, out TraceLoggingTypeInfo instance))
             {
                 if (recursionCheck == null)
                     recursionCheck = new List<Type>();

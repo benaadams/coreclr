@@ -25,17 +25,8 @@ namespace System
 
         private TimeZoneInfo(byte[] data, string id, bool dstDisabled)
         {
-            TZifHead t;
-            DateTime[] dts;
-            byte[] typeOfLocalTime;
-            TZifType[] transitionType;
-            string zoneAbbreviations;
-            bool[] StandardTime;
-            bool[] GmtTime;
-            string futureTransitionsPosixFormat;
-
             // parse the raw TZif bytes; this method can throw ArgumentException when the data is malformed.
-            TZif_ParseRaw(data, out t, out dts, out typeOfLocalTime, out transitionType, out zoneAbbreviations, out StandardTime, out GmtTime, out futureTransitionsPosixFormat);
+            TZif_ParseRaw(data, out TZifHead t, out DateTime[] dts, out byte[] typeOfLocalTime, out TZifType[] transitionType, out string zoneAbbreviations, out bool[] StandardTime, out bool[] GmtTime, out string futureTransitionsPosixFormat);
 
             _id = id;
             _displayName = LocalId;
@@ -114,7 +105,6 @@ namespace System
                 return;
             }
 
-            string timeZoneDisplayName;
             bool result = Interop.CallStringMethod(
                 (buffer, locale, id, type) =>
                 {
@@ -126,7 +116,7 @@ namespace System
                 CultureInfo.CurrentUICulture.Name,
                 _id,
                 nameType,
-                out timeZoneDisplayName);
+                out string timeZoneDisplayName);
 
             // If there is an unknown error, don't set the displayName field.
             // It will be set to the abbreviation that was read out of the tzfile.
@@ -182,9 +172,7 @@ namespace System
             string timeZoneDirectory = GetTimeZoneDirectory();
             foreach (string timeZoneId in GetTimeZoneIds(timeZoneDirectory))
             {
-                TimeZoneInfo value;
-                Exception ex;
-                TryGetTimeZone(timeZoneId, false, out value, out ex, cachedData, alwaysFallbackToLocalMachine: true);  // populate the cache
+                TryGetTimeZone(timeZoneId, false, out TimeZoneInfo value, out Exception ex, cachedData, alwaysFallbackToLocalMachine: true);  // populate the cache
             }
         }
 
@@ -447,8 +435,7 @@ namespace System
                         try
                         {
                             // Read each entry from the enumerator
-                            Interop.Sys.DirectoryEntry dirent;
-                            while (Interop.Sys.ReadDirR(dirHandle, dirBufferPtr, bufferSize, out dirent) == 0)
+                            while (Interop.Sys.ReadDirR(dirHandle, dirBufferPtr, bufferSize, out Interop.Sys.DirectoryEntry dirent) == 0)
                             {
                                 string fullPath = GetDirectoryEntryFullPath(ref dirent, currentPath);
                                 if (fullPath == null)
@@ -467,8 +454,7 @@ namespace System
                                     // It's a symlink or unknown: stat to it to see if we can resolve it to a directory.
                                     // If we can't (e.g. symlink to a file, broken symlink, etc.), we'll just treat it as a file.
 
-                                    Interop.Sys.FileStatus fileinfo;
-                                    if (Interop.Sys.Stat(fullPath, out fileinfo) >= 0)
+                                    if (Interop.Sys.Stat(fullPath, out Interop.Sys.FileStatus fileinfo) >= 0)
                                     {
                                         isDir = (fileinfo.Mode & Interop.Sys.FileTypes.S_IFMT) == Interop.Sys.FileTypes.S_IFDIR;
                                     }
@@ -614,9 +600,7 @@ namespace System
         /// </summary>
         private static TimeZoneInfo GetLocalTimeZoneFromTzFile()
         {
-            byte[] rawData;
-            string id;
-            if (TryGetLocalTzFile(out rawData, out id))
+            if (TryGetLocalTzFile(out byte[] rawData, out string id))
             {
                 TimeZoneInfo result = GetTimeZoneFromTzData(rawData, id);
                 if (result != null)
@@ -728,9 +712,8 @@ namespace System
         // DateTime.Now fast path that avoids allocating an historically accurate TimeZoneInfo.Local and just creates a 1-year (current year) accurate time zone
         internal static TimeSpan GetDateTimeNowUtcOffsetFromUtc(DateTime time, out bool isAmbiguousLocalDst)
         {
-            bool isDaylightSavings;
             // Use the standard code path for Unix since there isn't a faster way of handling current-year-only time zones
-            return GetUtcOffsetFromUtc(time, Local, out isDaylightSavings, out isAmbiguousLocalDst);
+            return GetUtcOffsetFromUtc(time, Local, out bool isDaylightSavings, out isAmbiguousLocalDst);
         }
 
         // TZFILE(5)                   BSD File Formats Manual                  TZFILE(5)
@@ -1160,15 +1143,13 @@ namespace System
                 // Try parsing just hours first.
                 // Note, TimeSpan.TryParseExact "%h" can't be used here because some time zones using values
                 // like "26" or "144" and TimeSpan parsing would turn that into 26 or 144 *days* instead of hours.
-                int hours;
-                if (int.TryParse(offset, out hours))
+                if (int.TryParse(offset, out int hours))
                 {
                     result = new TimeSpan(hours, 0, 0);
                 }
                 else
                 {
-                    TimeSpan parsedTimeSpan;
-                    if (TimeSpan.TryParseExact(offset, "g", CultureInfo.InvariantCulture, out parsedTimeSpan))
+                    if (TimeSpan.TryParseExact(offset, "g", CultureInfo.InvariantCulture, out TimeSpan parsedTimeSpan))
                     {
                         result = parsedTimeSpan;
                     }
@@ -1227,10 +1208,7 @@ namespace System
                 // This specifies day d of week w of month m. The day d must be between 0(Sunday) and 6.The week w must be between 1 and 5;
                 // week 1 is the first week in which day d occurs, and week 5 specifies the last d day in the month. The month m should be between 1 and 12.
 
-                int month;
-                int week;
-                DayOfWeek day;
-                if (!TZif_ParseMDateRule(date, out month, out week, out day))
+                if (!TZif_ParseMDateRule(date, out int month, out int week, out DayOfWeek day))
                 {
                     throw new InvalidTimeZoneException(SR.Format(SR.InvalidTimeZone_UnparseablePosixMDateString, date.ToString()));
                 }

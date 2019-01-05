@@ -87,8 +87,6 @@ namespace System.Globalization
             int outputBufferStartingLength = outputBuffer.Length;
 
             char cTens = '\x0';
-            char cUnits;               // tens and units chars
-            int Hundreds, Tens;              // hundreds and tens values
 
             //
             //  Adjust the number if greater than 5000.
@@ -103,7 +101,7 @@ namespace System.Globalization
             //
             //  Get the Hundreds.
             //
-            Hundreds = Number / 100;
+            int Hundreds = Number / 100;
 
             if (Hundreds > 0)
             {
@@ -128,7 +126,7 @@ namespace System.Globalization
             //
             //  Get the Tens.
             //
-            Tens = Number / 10;
+            int Tens = Number / 10;
             Number %= 10;
 
             switch (Tens)
@@ -168,7 +166,7 @@ namespace System.Globalization
             //
             //  Get the Units.
             //
-            cUnits = (char)(Number > 0 ? ((int)'\x05d0' + Number - 1) : 0);
+            char cUnits = (char)(Number > 0 ? ((int)'\x05d0' + Number - 1) : 0);
 
             if ((cUnits == '\x05d4') &&            // Hebrew Letter He  (5)
                 (cTens == '\x05d9'))

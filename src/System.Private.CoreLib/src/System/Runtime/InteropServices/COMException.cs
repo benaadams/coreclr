@@ -48,9 +48,8 @@ namespace System.Runtime.InteropServices
         public override string ToString()
         {
             string message = Message;
-            string s;
             string _className = GetType().ToString();
-            s = _className + " (0x" + HResult.ToString("X8", CultureInfo.InvariantCulture) + ")";
+            string s = _className + " (0x" + HResult.ToString("X8", CultureInfo.InvariantCulture) + ")";
 
             if (!(message == null || message.Length <= 0))
             {

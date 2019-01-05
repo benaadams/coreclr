@@ -50,10 +50,9 @@ namespace System.Globalization
                 return CultureInfo.InvariantCulture;
 
             const uint MUI_LANGUAGE_NAME = 0x8;    // Use ISO language (culture) name convention
-            uint langCount = 0;
             uint bufLen = 0;
 
-            if (Interop.Kernel32.GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, out langCount, null, ref bufLen))
+            if (Interop.Kernel32.GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, out uint langCount, null, ref bufLen))
             {
                 char[] languages = new char[bufLen];
                 if (Interop.Kernel32.GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, out langCount, languages, ref bufLen))

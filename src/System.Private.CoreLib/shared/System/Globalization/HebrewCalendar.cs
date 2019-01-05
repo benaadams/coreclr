@@ -520,9 +520,6 @@ namespace System.Globalization
         internal virtual int GetDatePart(long ticks, int part)
         {
             // The Gregorian year, month, day value for ticks.
-            int gregorianYear, gregorianMonth, gregorianDay;
-            int hebrewYearType;                // lunar year type
-            long AbsoluteDate;                // absolute date - absolute date 1/1/1600
 
             //
             //  Make sure we have a valid Gregorian date that will fit into our
@@ -535,14 +532,14 @@ namespace System.Globalization
             //
             //  Save the Gregorian date values.
             //
-            time.GetDatePart(out gregorianYear, out gregorianMonth, out gregorianDay);
+            time.GetDatePart(out int gregorianYear, out int gregorianMonth, out int gregorianDay);
 
             __DateBuffer lunarDate = new __DateBuffer();    // lunar month and day for Jan 1
 
             // From the table looking-up value of HebrewTable[index] (stored in lunarDate.day), we get the the
             // lunar month and lunar day where the Gregorian date 1/1 falls.
             lunarDate.year = gregorianYear + HebrewYearOf1AD;
-            hebrewYearType = GetLunarMonthDay(gregorianYear, lunarDate);
+            int hebrewYearType = GetLunarMonthDay(gregorianYear, lunarDate);
 
             // This is the buffer used to store the result Hebrew date.
             __DateBuffer result = new __DateBuffer();
@@ -557,7 +554,7 @@ namespace System.Globalization
             //
             //  Get the absolute date from 1/1/1600.
             //
-            AbsoluteDate = GregorianCalendar.GetAbsoluteDate(gregorianYear, gregorianMonth, gregorianDay);
+            long AbsoluteDate = GregorianCalendar.GetAbsoluteDate(gregorianYear, gregorianMonth, gregorianDay);
 
             //
             //  If the requested date was 1/1, then we're done.
@@ -570,8 +567,7 @@ namespace System.Globalization
             //
             //  Calculate the number of days between 1/1 and the requested date.
             //
-            long NumDays;                      // number of days since 1/1
-            NumDays = AbsoluteDate - GregorianCalendar.GetAbsoluteDate(gregorianYear, 1, 1);
+            long NumDays = AbsoluteDate - GregorianCalendar.GetAbsoluteDate(gregorianYear, 1, 1);
 
             //
             //  If the requested date is within the current lunar month, then
@@ -976,10 +972,8 @@ namespace System.Globalization
             {
                 // (month1, day1) < (month2, day2).  Swap the values.
                 // The result will be a negative number.
-                int tempMonth, tempDay;
-                tempMonth = month1; tempDay = day1;
-                month1 = month2; day1 = day2;
-                month2 = tempMonth; day2 = tempDay;
+                int tempMonth = month1; month1 = month2; month2 = tempMonth;
+                int tempDay = day1; day1 = day2; day2 = tempDay;
             }
 
             // Get the number of days from (month1,day1) to (month1, end of month1)

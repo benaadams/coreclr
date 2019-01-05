@@ -33,7 +33,6 @@ namespace System.Buffers.Text
             Span<byte> digits = number.Digits;
 
             int srcIndex = 0;
-            int dstIndex = 0;
 
             // Consume the leading sign if any.
             byte c = source[srcIndex];
@@ -110,6 +109,7 @@ namespace System.Buffers.Text
             int numDigitsBeforeDecimal = srcIndex - startIndexDigitsBeforeDecimal;
             int numNonLeadingDigitsBeforeDecimal = srcIndex - startIndexNonLeadingDigitsBeforeDecimal;
 
+            int dstIndex = 0;
             Debug.Assert(dstIndex == 0);
             int numNonLeadingDigitsBeforeDecimalToCopy = Math.Min(numNonLeadingDigitsBeforeDecimal, maxDigitCount);
             source.Slice(startIndexNonLeadingDigitsBeforeDecimal, numNonLeadingDigitsBeforeDecimalToCopy).CopyTo(digits);

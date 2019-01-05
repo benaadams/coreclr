@@ -223,13 +223,10 @@ namespace System
                 return TimeSpan.Zero;
             }
 
-            DateTime startTime;
-            DateTime endTime;
-
             // startTime and endTime represent the period from either the start of DST to the end and includes the 
             // potentially overlapped times
-            startTime = daylightTimes.Start + daylightTimes.Delta;
-            endTime = daylightTimes.End;
+            DateTime startTime = daylightTimes.Start + daylightTimes.Delta;
+            DateTime endTime = daylightTimes.End;
 
             // For normal time zones, the ambiguous hour is the last hour of daylight saving when you wind the 
             // clock back. It is theoretically possible to have a positive delta, (which would really be daylight

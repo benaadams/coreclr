@@ -199,8 +199,7 @@ namespace System.Globalization
             }
 
             // Call an internal GetUnicodeCategory, which will tell us both the unicode category, and also tell us if it is a surrogate pair or not.
-            int nextCharCount;
-            UnicodeCategory ucNext = CharUnicodeInfo.InternalGetUnicodeCategory(str, index + currentCharCount, out nextCharCount);
+            UnicodeCategory ucNext = CharUnicodeInfo.InternalGetUnicodeCategory(str, index + currentCharCount, out int nextCharCount);
             if (CharUnicodeInfo.IsCombiningCategory(ucNext))
             {
                 // The next element is a combining class.
@@ -271,8 +270,7 @@ namespace System.Globalization
                 throw new ArgumentOutOfRangeException(nameof(index), SR.ArgumentOutOfRange_Index);
             }
 
-            int charLen;
-            UnicodeCategory uc = CharUnicodeInfo.InternalGetUnicodeCategory(str, index, out charLen);
+            UnicodeCategory uc = CharUnicodeInfo.InternalGetUnicodeCategory(str, index, out int charLen);
             return (str.Substring(index, GetCurrentTextElementLen(str, index, len, ref uc, ref charLen)));
         }
 
@@ -329,8 +327,7 @@ namespace System.Globalization
             int resultCount = 0;
 
             int i = 0;
-            int currentCharLen;
-            UnicodeCategory currentCategory = CharUnicodeInfo.InternalGetUnicodeCategory(str, 0, out currentCharLen);
+            UnicodeCategory currentCategory = CharUnicodeInfo.InternalGetUnicodeCategory(str, 0, out int currentCharLen);
 
             while (i < len)
             {

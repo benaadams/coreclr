@@ -59,15 +59,12 @@ namespace System.Reflection.Emit
             Type returnType, Type[] requiredReturnTypeCustomModifiers, Type[] optionalReturnTypeCustomModifiers,
             Type[] parameterTypes, Type[][] requiredParameterTypeCustomModifiers, Type[][] optionalParameterTypeCustomModifiers)
         {
-            SignatureHelper sigHelp;
-            MdSigCallingConvention intCall;
-
             if (returnType == null)
             {
                 returnType = typeof(void);
             }
 
-            intCall = MdSigCallingConvention.Default;
+            MdSigCallingConvention intCall = MdSigCallingConvention.Default;
 
             if ((callingConvention & CallingConventions.VarArgs) == CallingConventions.VarArgs)
                 intCall = MdSigCallingConvention.Vararg;
@@ -80,8 +77,8 @@ namespace System.Reflection.Emit
             if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis)
                 intCall |= MdSigCallingConvention.HasThis;
 
-            sigHelp = new SignatureHelper(scope, intCall, cGenericParam, returnType,
-                                            requiredReturnTypeCustomModifiers, optionalReturnTypeCustomModifiers);
+            SignatureHelper sigHelp = new SignatureHelper(scope, intCall, cGenericParam, returnType,
+                requiredReturnTypeCustomModifiers, optionalReturnTypeCustomModifiers);
             sigHelp.AddArguments(parameterTypes, requiredParameterTypeCustomModifiers, optionalParameterTypeCustomModifiers);
 
             return sigHelp;
@@ -89,12 +86,10 @@ namespace System.Reflection.Emit
 
         public static SignatureHelper GetMethodSigHelper(Module mod, CallingConvention unmanagedCallConv, Type returnType)
         {
-            SignatureHelper sigHelp;
-            MdSigCallingConvention intCall;
-
             if (returnType == null)
                 returnType = typeof(void);
 
+            MdSigCallingConvention intCall;
             if (unmanagedCallConv == CallingConvention.Cdecl)
             {
                 intCall = MdSigCallingConvention.C;
@@ -116,7 +111,7 @@ namespace System.Reflection.Emit
                 throw new ArgumentException(SR.Argument_UnknownUnmanagedCallConv, nameof(unmanagedCallConv));
             }
 
-            sigHelp = new SignatureHelper(mod, intCall, returnType, null, null);
+            SignatureHelper sigHelp = new SignatureHelper(mod, intCall, returnType, null, null);
 
             return sigHelp;
         }
@@ -162,8 +157,6 @@ namespace System.Reflection.Emit
             Type returnType, Type[] requiredReturnTypeCustomModifiers, Type[] optionalReturnTypeCustomModifiers,
             Type[] parameterTypes, Type[][] requiredParameterTypeCustomModifiers, Type[][] optionalParameterTypeCustomModifiers)
         {
-            SignatureHelper sigHelp;
-
             if (returnType == null)
             {
                 returnType = typeof(void);
@@ -174,7 +167,7 @@ namespace System.Reflection.Emit
             if ((callingConvention & CallingConventions.HasThis) == CallingConventions.HasThis)
                 intCall |= MdSigCallingConvention.HasThis;
 
-            sigHelp = new SignatureHelper(mod, intCall,
+            SignatureHelper sigHelp = new SignatureHelper(mod, intCall,
                 returnType, requiredReturnTypeCustomModifiers, optionalReturnTypeCustomModifiers);
             sigHelp.AddArguments(parameterTypes, requiredParameterTypeCustomModifiers, optionalParameterTypeCustomModifiers);
 
@@ -613,19 +606,6 @@ namespace System.Reflection.Emit
 
         private void SetNumberOfSignatureElements(bool forceCopy)
         {
-            // For most signatures, this will set the number of elements in a byte which we have reserved for it.
-            // However, if we have a field signature, we don't set the length and return.
-            // If we have a signature with more than 128 arguments, we can't just set the number of elements,
-            // we actually have to allocate more space (e.g. shift everything in the array one or more spaces to the
-            // right.  We do this by making a copy of the array and leaving the correct number of blanks.  This new
-            // array is now set to be m_signature and we use the AddData method to set the number of elements properly.
-            // The forceCopy argument can be used to force SetNumberOfSignatureElements to make a copy of
-            // the array.  This is useful for GetSignature which promises to trim the array to be the correct size anyway.
-
-            byte[] temp;
-            int newSigSize;
-            int currSigHolder = m_currSig;
-
             if (m_sizeLoc == NO_SIZE_IN_SIG)
                 return;
 
@@ -637,6 +617,7 @@ namespace System.Reflection.Emit
                 return;
             }
 
+            int newSigSize;
             //We need to have more bytes for the size.  Figure out how many bytes here.
             //Since we need to copy anyway, we're just going to take the cost of doing a
             //new allocation.
@@ -653,13 +634,23 @@ namespace System.Reflection.Emit
                 newSigSize = 4;
             }
 
+            // For most signatures, this will set the number of elements in a byte which we have reserved for it.
+            // However, if we have a field signature, we don't set the length and return.
+            // If we have a signature with more than 128 arguments, we can't just set the number of elements,
+            // we actually have to allocate more space (e.g. shift everything in the array one or more spaces to the
+            // right.  We do this by making a copy of the array and leaving the correct number of blanks.  This new
+            // array is now set to be m_signature and we use the AddData method to set the number of elements properly.
+            // The forceCopy argument can be used to force SetNumberOfSignatureElements to make a copy of
+            // the array.  This is useful for GetSignature which promises to trim the array to be the correct size anyway.
+
             //Allocate the new array.
-            temp = new byte[m_currSig + newSigSize - 1];
+            byte[] temp = new byte[m_currSig + newSigSize - 1];
 
             //Copy the calling convention.  The calling convention is always just one byte
             //so we just copy that byte.  Then copy the rest of the array, shifting everything
             //to make room for the new number of elements.
             temp[0] = m_signature[0];
+            int currSigHolder = m_currSig;
             Buffer.BlockCopy(m_signature, m_sizeLoc + 1, temp, m_sizeLoc + newSigSize, currSigHolder - (m_sizeLoc + 1));
             m_signature = temp;
 

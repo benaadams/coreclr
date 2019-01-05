@@ -144,10 +144,9 @@ namespace System.Resources
         {
             Debug.Assert(a != null, "assembly != null");
             string cultureName = null;
-            short fallback = 0;
             if (GetNeutralResourcesLanguageAttribute(((RuntimeAssembly)a).GetNativeHandle(),
                                                         JitHelpers.GetStringHandleOnStack(ref cultureName),
-                                                        out fallback))
+                                                        out short fallback))
             {
                 if ((UltimateResourceFallbackLocation)fallback < UltimateResourceFallbackLocation.MainAssembly || (UltimateResourceFallbackLocation)fallback > UltimateResourceFallbackLocation.Satellite)
                 {

@@ -2,15 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//
-
-using System;
-using System.Security;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
 using Internal.Runtime.CompilerServices;
 
 namespace System.Runtime.InteropServices.WindowsRuntime
@@ -112,8 +105,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
             IDictionary<K, V> _this_dictionary = _this as IDictionary<K, V>;
             if (_this_dictionary != null)
             {
-                V value;
-                bool hasKey = _this_dictionary.TryGetValue(item.Key, out value);
+                bool hasKey = _this_dictionary.TryGetValue(item.Key, out V value);
 
                 if (!hasKey)
                     return false;
@@ -124,8 +116,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
             {
                 IVector<KeyValuePair<K, V>> _this_vector = Unsafe.As<IVector<KeyValuePair<K, V>>>(this);
 
-                uint index;
-                return _this_vector.IndexOf(item, out index);
+                return _this_vector.IndexOf(item, out uint index);
             }
         }
 
@@ -165,8 +156,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
             else
             {
                 IVector<KeyValuePair<K, V>> _this_vector = Unsafe.As<IVector<KeyValuePair<K, V>>>(this);
-                uint index;
-                bool exists = _this_vector.IndexOf(item, out index);
+                bool exists = _this_vector.IndexOf(item, out uint index);
 
                 if (!exists)
                     return false;

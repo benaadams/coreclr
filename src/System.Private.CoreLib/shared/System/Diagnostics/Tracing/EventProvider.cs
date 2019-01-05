@@ -166,10 +166,9 @@ namespace System.Diagnostics.Tracing
         // </SecurityKernel>
         internal unsafe void Register(EventSource eventSource)
         {
-            uint status;
             m_etwCallback = new UnsafeNativeMethods.ManifestEtw.EtwEnableCallback(EtwEnableCallBack);
 
-            status = EventRegister(eventSource, m_etwCallback);
+            uint status = EventRegister(eventSource, m_etwCallback);
             if (status != 0)
             {
 #if PLATFORM_WINDOWS && !ES_BUILD_STANDALONE
@@ -311,10 +310,8 @@ namespace System.Diagnostics.Tracing
                             filterData = null;
 
                         // read filter data only when a session is being *added*
-                        byte[] data;
-                        int keyIndex;
                         if (bEnabling &&
-                            GetDataFromController(etwSessionId, filterData, out command, out data, out keyIndex))
+                            GetDataFromController(etwSessionId, filterData, out command, out byte[] data, out int keyIndex))
                         {
                             args = new Dictionary<string, string>(4);
                             while (keyIndex < data.Length)
@@ -1011,8 +1008,7 @@ namespace System.Diagnostics.Tracing
                     {
                         if (eventPayload[index] != null)
                         {
-                            object supportedRefObj;
-                            supportedRefObj = EncodeObject(ref eventPayload[index], ref userDataPtr, ref currentBuffer, ref totalEventSize);
+                            object supportedRefObj = EncodeObject(ref eventPayload[index], ref userDataPtr, ref currentBuffer, ref totalEventSize);
 
                             if (supportedRefObj != null)
                             {
@@ -1199,9 +1195,7 @@ namespace System.Diagnostics.Tracing
             int dataCount,
             IntPtr data)
         {
-            int status;
-
-            status = m_eventProvider.EventWriteTransferWrapper(
+            int status = m_eventProvider.EventWriteTransferWrapper(
                 m_regHandle,
                 ref eventDescriptor,
                 eventHandle,

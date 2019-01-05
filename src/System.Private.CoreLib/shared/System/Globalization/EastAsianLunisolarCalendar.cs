@@ -215,9 +215,8 @@ namespace System.Globalization
         internal int InternalGetDaysInMonth(int year, int month)
         {
             int nDays;
-            int mask;        // mask for extracting bits
 
-            mask = 0x8000;
+            int mask = 0x8000;
             // convert the lunar day into a lunar month/date
             mask >>= (month - 1);
             if ((GetYearInfo(year, nDaysPerMonth) & mask) == 0)
@@ -275,23 +274,19 @@ namespace System.Globalization
         //
         internal void GregorianToLunar(int nSYear, int nSMonth, int nSDate, ref int nLYear, ref int nLMonth, ref int nLDate)
         {
-            //    unsigned int nLYear, nLMonth, nLDate;    // lunar ymd
-            int nSolarDay;        // day # in solar year
-            int nLunarDay;        // day # in lunar year
-            int fLeap;                    // is it a solar leap year?
-            int LDpM;        // lunar days/month bitfield
-            int mask;        // mask for extracting bits
-            int nDays;        // # days this lunar month
-            int nJan1Month, nJan1Date;
-
             // calc the solar day of year
-            fLeap = GregorianIsLeapYear(nSYear);
-            nSolarDay = (fLeap == 1) ? DaysToMonth366[nSMonth - 1] : DaysToMonth365[nSMonth - 1];
+            int fLeap = GregorianIsLeapYear(nSYear);  // is it a solar leap year?
+            // day # in solar year
+            int nSolarDay = (fLeap == 1) ? DaysToMonth366[nSMonth - 1] : DaysToMonth365[nSMonth - 1];
             nSolarDay += nSDate;
 
             // init lunar year info
-            nLunarDay = nSolarDay;
+            int nLunarDay = nSolarDay; // day # in lunar year
             nLYear = nSYear;
+            //    unsigned int nLYear, nLMonth, nLDate;    // lunar ymd
+
+            int nJan1Month;
+            int nJan1Date;
             if (nLYear == (MaxCalendarYear + 1))
             {
                 nLYear--;
@@ -331,9 +326,9 @@ namespace System.Globalization
             nLunarDay -= (nJan1Date - 1);
 
             // convert the lunar day into a lunar month/date
-            mask = 0x8000;
-            LDpM = GetYearInfo(nLYear, nDaysPerMonth);
-            nDays = ((LDpM & mask) != 0) ? 30 : 29;
+            int mask = 0x8000;  // mask for extracting bits
+            int LDpM = GetYearInfo(nLYear, nDaysPerMonth);  // lunar days/month bitfield
+            int nDays = ((LDpM & mask) != 0) ? 30 : 29;  // # days this lunar month
             nLMonth = 1;
             while (nLunarDay > nDays)
             {
@@ -351,12 +346,10 @@ namespace System.Globalization
         */
         internal bool LunarToGregorian(int nLYear, int nLMonth, int nLDate, ref int nSolarYear, ref int nSolarMonth, ref int nSolarDay)
         {
-            int numLunarDays;
-
             if (nLDate < 1 || nLDate > 30)
                 return false;
 
-            numLunarDays = nLDate - 1;
+            int numLunarDays = nLDate - 1;
 
             //Add previous months days to form the total num of days from the first of the month.
             for (int i = 1; i < nLMonth; i++)

@@ -46,13 +46,12 @@ namespace System
         public Random(int Seed)
         {
             int ii = 0;
-            int mj, mk;
 
             //Initialize our Seed array.
             int subtraction = (Seed == int.MinValue) ? int.MaxValue : Math.Abs(Seed);
-            mj = MSEED - subtraction;
+            int mj = MSEED - subtraction;
             _seedArray[55] = mj;
-            mk = 1;
+            int mk = 1;
             for (int i = 1; i < 55; i++)
             {  //Apparently the range [1..55] is special (Knuth) and so we're wasting the 0'th position.
                 if ((ii += 21) >= 55) ii -= 55;
@@ -95,14 +94,13 @@ namespace System
 
         private int InternalSample()
         {
-            int retVal;
             int locINext = _inext;
             int locINextp = _inextp;
 
             if (++locINext >= 56) locINext = 1;
             if (++locINextp >= 56) locINextp = 1;
 
-            retVal = _seedArray[locINext] - _seedArray[locINextp];
+            int retVal = _seedArray[locINext] - _seedArray[locINextp];
 
             if (retVal == MBIG) retVal--;
             if (retVal < 0) retVal += MBIG;

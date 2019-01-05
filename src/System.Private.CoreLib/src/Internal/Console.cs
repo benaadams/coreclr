@@ -26,8 +26,7 @@ namespace Internal
 
             fixed (byte* pBytes = bytes)
             {
-                int bytesWritten;
-                Win32Native.WriteFile(_outputHandle, pBytes, bytes.Length, out bytesWritten, IntPtr.Zero);
+                Win32Native.WriteFile(_outputHandle, pBytes, bytes.Length, out int bytesWritten, IntPtr.Zero);
             }
         }
 

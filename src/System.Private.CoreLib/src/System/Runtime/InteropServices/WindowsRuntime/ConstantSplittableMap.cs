@@ -5,10 +5,6 @@
 using System.Diagnostics;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics.Contracts;
-using System.Runtime.InteropServices;
-
 
 namespace System.Runtime.InteropServices.WindowsRuntime
 {
@@ -95,8 +91,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
 
         public TValue Lookup(TKey key)
         {
-            TValue value;
-            bool found = TryGetValue(key, out value);
+            bool found = TryGetValue(key, out TValue value);
 
             if (!found)
             {
@@ -111,8 +106,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
 
         public bool HasKey(TKey key)
         {
-            TValue value;
-            bool hasKey = TryGetValue(key, out value);
+            bool hasKey = TryGetValue(key, out TValue value);
             return hasKey;
         }
 

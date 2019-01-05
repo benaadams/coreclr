@@ -543,8 +543,7 @@ namespace System.Diagnostics.Tracing
 
             fixed (EventSourceOptions* pOptions = &options)
             {
-                EventDescriptor descriptor;
-                var nameInfo = this.UpdateDescriptor(eventName, eventTypes, ref options, out descriptor);
+                var nameInfo = this.UpdateDescriptor(eventName, eventTypes, ref options, out EventDescriptor descriptor);
                 if (nameInfo == null)
                 {
                     return;
@@ -611,9 +610,8 @@ namespace System.Diagnostics.Tracing
             {
                 fixed (EventSourceOptions* pOptions = &options)
                 {
-                    EventDescriptor descriptor;
                     options.Opcode = options.IsOpcodeSet ? options.Opcode : GetOpcodeWithDefault(options.Opcode, eventName);
-                    var nameInfo = this.UpdateDescriptor(eventName, eventTypes, ref options, out descriptor);
+                    var nameInfo = this.UpdateDescriptor(eventName, eventTypes, ref options, out EventDescriptor descriptor);
                     if (nameInfo == null)
                     {
                         return;
@@ -783,8 +781,7 @@ namespace System.Diagnostics.Tracing
                     if (m_traits[i].StartsWith("ETW_", StringComparison.Ordinal))
                     {
                         string etwTrait = m_traits[i].Substring(4);
-                        byte traitNum;
-                        if (!byte.TryParse(etwTrait, out traitNum))
+                        if (!byte.TryParse(etwTrait, out byte traitNum))
                         {
                             if (etwTrait == "GROUP")
                             {

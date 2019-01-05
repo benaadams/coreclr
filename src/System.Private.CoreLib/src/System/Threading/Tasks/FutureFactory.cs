@@ -1367,9 +1367,7 @@ namespace System.Threading.Tasks
         // Used by ContinueWhenAll/Any to bail out early on a pre-canceled token.
         private static Task<TResult> CreateCanceledTask(TaskContinuationOptions continuationOptions, CancellationToken ct)
         {
-            TaskCreationOptions tco;
-            InternalTaskOptions dontcare;
-            Task.CreationOptionsFromContinuationOptions(continuationOptions, out tco, out dontcare);
+            Task.CreationOptionsFromContinuationOptions(continuationOptions, out TaskCreationOptions tco, out InternalTaskOptions dontcare);
             return new Task<TResult>(true, default, tco, ct);
         }
 

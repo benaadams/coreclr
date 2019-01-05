@@ -788,9 +788,7 @@ namespace System.Globalization
 
             if (match)
             {
-                long ticks;
-
-                if (!TryTimeToTicks(positive, raw._numbers0, raw._numbers1, raw._numbers2, raw._numbers3, raw._numbers4, out ticks))
+                if (!TryTimeToTicks(positive, raw._numbers0, raw._numbers1, raw._numbers2, raw._numbers3, raw._numbers4, out long ticks))
                 {
                     return result.SetOverflowFailure();
                 }
@@ -1113,10 +1111,9 @@ namespace System.Globalization
 
             if (match)
             {
-                long ticks = 0;
                 var zero = new TimeSpanToken(0);
 
-                if (!TryTimeToTicks(positive, zero, raw._numbers0, raw._numbers1, zero, zero, out ticks))
+                if (!TryTimeToTicks(positive, zero, raw._numbers0, raw._numbers1, zero, zero, out long ticks))
                 {
                     return result.SetOverflowFailure();
                 }
@@ -1183,10 +1180,9 @@ namespace System.Globalization
 
             if (match)
             {
-                long ticks = 0;
                 var zero = new TimeSpanToken(0);
 
-                if (!TryTimeToTicks(positive, raw._numbers0, zero, zero, zero, zero, out ticks))
+                if (!TryTimeToTicks(positive, raw._numbers0, zero, zero, zero, zero, out long ticks))
                 {
                     return result.SetOverflowFailure();
                 }
@@ -1411,9 +1407,8 @@ namespace System.Globalization
         private static bool ParseExactDigits(ref TimeSpanTokenizer tokenizer, int minDigitLength, out int result)
         {
             result = 0;
-            int zeroes = 0;
             int maxDigitLength = (minDigitLength == 1) ? 2 : minDigitLength;
-            return ParseExactDigits(ref tokenizer, minDigitLength, maxDigitLength, out zeroes, out result);
+            return ParseExactDigits(ref tokenizer, minDigitLength, maxDigitLength, out int zeroes, out result);
         }
 
         private static bool ParseExactDigits(ref TimeSpanTokenizer tokenizer, int minDigitLength, int maxDigitLength, out int zeroes, out int result)
@@ -1519,8 +1514,7 @@ namespace System.Globalization
                 }
                 else
                 {
-                    int days;
-                    if (!ParseInt((int)(0x7FFFFFFFFFFFFFFFL / TimeSpan.TicksPerDay), out days, ref result))
+                    if (!ParseInt((int)(0x7FFFFFFFFFFFFFFFL / TimeSpan.TicksPerDay), out int days, ref result))
                     {
                         return false;
                     }
@@ -1530,8 +1524,7 @@ namespace System.Globalization
                     if (_ch == '.')
                     {
                         NextChar();
-                        long remainingTime;
-                        if (!ParseTime(out remainingTime, ref result))
+                        if (!ParseTime(out long remainingTime, ref result))
                         {
                             return false;
                         };
@@ -1603,9 +1596,8 @@ namespace System.Globalization
             internal bool ParseTime(out long time, ref TimeSpanResult result)
             {
                 time = 0;
-                int unit;
 
-                if (!ParseInt(23, out unit, ref result))
+                if (!ParseInt(23, out int unit, ref result))
                 {
                     return false;
                 }

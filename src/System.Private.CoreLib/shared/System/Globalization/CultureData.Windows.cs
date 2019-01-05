@@ -64,11 +64,10 @@ namespace System.Globalization
             const uint LOCALE_INEUTRAL = 0x00000071;
             const uint LOCALE_SNAME = 0x0000005c;
 
-            int result;
             string realNameBuffer = _sRealName;
             char* pBuffer = stackalloc char[LOCALE_NAME_MAX_LENGTH];
 
-            result = GetLocaleInfoEx(realNameBuffer, LOCALE_SNAME, pBuffer, LOCALE_NAME_MAX_LENGTH);
+            int result = GetLocaleInfoEx(realNameBuffer, LOCALE_SNAME, pBuffer, LOCALE_NAME_MAX_LENGTH);
 
             // Did it fail?
             if (result == 0)

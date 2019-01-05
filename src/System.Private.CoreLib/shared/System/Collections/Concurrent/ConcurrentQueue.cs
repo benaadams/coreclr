@@ -229,8 +229,7 @@ namespace System.Collections.Concurrent
                 // IsEmpty == !TryPeek. We use a "resultUsed:false" peek in order to avoid marking
                 // segments as preserved for observation, making IsEmpty a cheaper way than either
                 // TryPeek(out T) or Count == 0 to check whether any elements are in the queue.
-                T ignoredResult;
-                return !TryPeek(out ignoredResult, resultUsed: false);
+                return !TryPeek(out T ignoredResult, resultUsed: false);
             }
         }
 
@@ -239,9 +238,7 @@ namespace System.Collections.Concurrent
         public T[] ToArray()
         {
             // Snap the current contents for enumeration.
-            ConcurrentQueueSegment<T> head, tail;
-            int headHead, tailTail;
-            SnapForObservation(out head, out headHead, out tail, out tailTail);
+            SnapForObservation(out ConcurrentQueueSegment<T> head, out int headHead, out ConcurrentQueueSegment<T> tail, out int tailTail);
 
             // Count the number of items in that snapped set, and use it to allocate an
             // array of the right size.
@@ -467,9 +464,7 @@ namespace System.Collections.Concurrent
             }
 
             // Snap for enumeration
-            ConcurrentQueueSegment<T> head, tail;
-            int headHead, tailTail;
-            SnapForObservation(out head, out headHead, out tail, out tailTail);
+            SnapForObservation(out ConcurrentQueueSegment<T> head, out int headHead, out ConcurrentQueueSegment<T> tail, out int tailTail);
 
             // Get the number of items to be enumerated
             long count = GetCount(head, headHead, tail, tailTail);
@@ -501,9 +496,7 @@ namespace System.Collections.Concurrent
         /// </remarks>
         public IEnumerator<T> GetEnumerator()
         {
-            ConcurrentQueueSegment<T> head, tail;
-            int headHead, tailTail;
-            SnapForObservation(out head, out headHead, out tail, out tailTail);
+            SnapForObservation(out ConcurrentQueueSegment<T> head, out int headHead, out ConcurrentQueueSegment<T> tail, out int tailTail);
             return Enumerate(head, headHead, tail, tailTail);
         }
 
