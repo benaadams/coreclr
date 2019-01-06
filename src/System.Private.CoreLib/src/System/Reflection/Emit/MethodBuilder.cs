@@ -715,7 +715,6 @@ namespace System.Reflection.Emit
 
             MethodBuilder currentMethod = null;
             MethodToken currentToken = new MethodToken(0);
-            int i;
 
             // We need to lock here to prevent a method from being "tokenized" twice.
             // We don't need to synchronize this with Type.DefineMethod because it only appends newly
@@ -727,6 +726,7 @@ namespace System.Reflection.Emit
                     return m_tkMethod;
                 }
 
+                int i;
                 // If m_tkMethod is still 0 when we obtain the lock, m_lastTokenizedMethod must be smaller
                 // than the index of the current method.
                 for (i = m_containingType.m_lastTokenizedMethod + 1; i < m_containingType.m_listMethods.Count; ++i)

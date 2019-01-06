@@ -800,7 +800,6 @@ namespace System.Text
             // Only need decoder fallback buffer if not using ? fallback.
             // ASCII doesn't do best fit, so don't have to check for it, find out which decoder fallback we're using
             DecoderReplacementFallback fallback = null;
-            char* charsForFallback;
 
             if (decoder == null)
                 fallback = this.DecoderFallback as DecoderReplacementFallback;
@@ -872,7 +871,7 @@ namespace System.Text
                     byteBuffer[0] = b;
 
                     // Note that chars won't get updated unless this succeeds
-                    charsForFallback = chars; // Avoid passing chars by reference to allow it to be enregistered
+                    char* charsForFallback = chars;
                     bool fallbackResult = fallbackBuffer.InternalFallback(byteBuffer, bytes, ref charsForFallback);
                     chars = charsForFallback;
 

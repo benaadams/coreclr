@@ -660,8 +660,6 @@ namespace System.Collections
                 int bucketNumber = (int)(seed % (uint)lbuckets.Length);
                 do
                 {
-                    int currentversion;
-
                     //     A read operation on hashtable has three steps:
                     //        (1) calculate the hash and find the slot number.
                     //        (2) compare the hashcode, if equal, go to step 3. Otherwise end.
@@ -682,7 +680,7 @@ namespace System.Collections
                     while (true)
                     {
                         // this is volatile read, following memory accesses can not be moved ahead of it.
-                        currentversion = _version;
+                        int currentversion = _version;
                         b = lbuckets[bucketNumber];
 
                         if (!_isWriterInProgress && (currentversion == _version))

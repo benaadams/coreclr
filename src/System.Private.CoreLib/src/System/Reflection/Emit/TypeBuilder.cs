@@ -501,7 +501,6 @@ namespace System.Reflection.Emit
             if (fullname.Length > 1023)
                 throw new ArgumentException(SR.Argument_TypeNameTooLong, nameof(fullname));
 
-            int i;
             m_module = module;
             m_DeclaringType = enclosingType;
             AssemblyBuilder containingAssem = m_module.ContainingAssemblyBuilder;
@@ -520,7 +519,7 @@ namespace System.Reflection.Emit
             int[] interfaceTokens = null;
             if (interfaces != null)
             {
-                for (i = 0; i < interfaces.Length; i++)
+                for (int i = 0; i < interfaces.Length; i++)
                 {
                     if (interfaces[i] == null)
                     {
@@ -529,7 +528,7 @@ namespace System.Reflection.Emit
                     }
                 }
                 interfaceTokens = new int[interfaces.Length + 1];
-                for (i = 0; i < interfaces.Length; i++)
+                for (int i = 0; i < interfaces.Length; i++)
                 {
                     interfaceTokens[i] = m_module.GetTypeTokenInternal(interfaces[i]).Token;
                 }
@@ -2023,9 +2022,6 @@ namespace System.Reflection.Emit
                             ((GenericTypeParameterBuilder)tb).m_type.CreateType();
             }
 
-            byte[] body;
-            MethodAttributes methodAttrs;
-
             if (!m_isHiddenGlobalType)
             {
                 // create a public default constructor if this class has no constructor.
@@ -2042,11 +2038,10 @@ namespace System.Reflection.Emit
             {
                 MethodBuilder meth = m_listMethods[i];
 
-
                 if (meth.IsGenericMethodDefinition)
                     meth.GetToken(); // Doubles as "CreateMethod" for MethodBuilder -- analogous to CreateType()
 
-                methodAttrs = meth.Attributes;
+                MethodAttributes methodAttrs = meth.Attributes;
 
                 // Any of these flags in the implemenation flags is set, we will not attach the IL method body
                 if (((meth.GetMethodImplementationFlags() & (MethodImplAttributes.CodeTypeMask | MethodImplAttributes.PreserveSig | MethodImplAttributes.Unmanaged)) != MethodImplAttributes.IL) ||
@@ -2063,7 +2058,7 @@ namespace System.Reflection.Emit
                     throw new InvalidOperationException(SR.InvalidOperation_BadTypeAttributesNotAbstract);
                 }
 
-                body = meth.GetBody();
+                byte[] body = meth.GetBody();
 
                 // If this is an abstract method or an interface, we don't need to set the IL.
 

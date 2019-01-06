@@ -974,10 +974,9 @@ namespace System.Diagnostics.Tracing
 
             if (IsEnabled(eventDescriptor.Level, eventDescriptor.Keywords))
             {
-                int argCount = 0;
                 unsafe
                 {
-                    argCount = eventPayload.Length;
+                    int argCount = eventPayload.Length;
 
                     if (argCount > s_etwMaxNumberArguments)
                     {

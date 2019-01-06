@@ -350,8 +350,6 @@ namespace System
                 }
             }
 
-            int minor, build, revision;
-
             // Parse the major version
             if (!TryParseComponent(input.Slice(0, majorEnd), nameof(input), throwOnFailure, out int major))
             {
@@ -361,14 +359,16 @@ namespace System
             if (minorEnd != -1)
             {
                 // If there's more than a major and minor, parse the minor, too.
-                if (!TryParseComponent(input.Slice(majorEnd + 1, minorEnd - majorEnd - 1), nameof(input), throwOnFailure, out minor))
+                if (!TryParseComponent(input.Slice(majorEnd + 1, minorEnd - majorEnd - 1), nameof(input), throwOnFailure, out int minor))
                 {
                     return null;
                 }
 
+                int build;
                 if (buildEnd != -1)
                 {
                     // major.minor.build.revision
+                    int revision;
                     return
                         TryParseComponent(input.Slice(minorEnd + 1, buildEnd - minorEnd - 1), nameof(build), throwOnFailure, out build) &&
                         TryParseComponent(input.Slice(buildEnd + 1), nameof(revision), throwOnFailure, out revision) ?
@@ -386,7 +386,7 @@ namespace System
             else
             {
                 // major.minor
-                return TryParseComponent(input.Slice(majorEnd + 1), nameof(input), throwOnFailure, out minor) ?
+                return TryParseComponent(input.Slice(majorEnd + 1), nameof(input), throwOnFailure, out int minor) ?
                     new Version(major, minor) :
                     null;
             }

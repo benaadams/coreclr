@@ -1902,13 +1902,12 @@ namespace System
         // Called internally
         private static unsafe PropertyInfo GetPropertyInfo(RuntimeType reflectedType, int tkProperty)
         {
-            RuntimePropertyInfo property = null;
             RuntimePropertyInfo[] candidates =
                 reflectedType.Cache.GetPropertyList(MemberListType.All, null);
 
             for (int i = 0; i < candidates.Length; i++)
             {
-                property = candidates[i];
+                RuntimePropertyInfo property = candidates[i];
                 if (property.MetadataToken == tkProperty)
                     return property;
             }

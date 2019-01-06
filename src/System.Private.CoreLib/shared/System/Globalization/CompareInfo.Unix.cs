@@ -804,16 +804,15 @@ namespace System.Globalization
             Debug.Assert(!GlobalizationMode.Invariant);
 
             int index = 0;
-            UnicodeCategory uc;
-
             while (index < length)
             {
+                UnicodeCategory uc;
                 if (char.IsHighSurrogate(text[index]))
                 {
-                    if (index == length - 1 || !char.IsLowSurrogate(text[index+1]))
+                    if (index == length - 1 || !char.IsLowSurrogate(text[index + 1]))
                         return false; // unpaired surrogate
 
-                    uc = CharUnicodeInfo.GetUnicodeCategory(char.ConvertToUtf32(text[index], text[index+1]));
+                    uc = CharUnicodeInfo.GetUnicodeCategory(char.ConvertToUtf32(text[index], text[index + 1]));
                     if (uc == UnicodeCategory.PrivateUse || uc == UnicodeCategory.OtherNotAssigned)
                         return false;
 

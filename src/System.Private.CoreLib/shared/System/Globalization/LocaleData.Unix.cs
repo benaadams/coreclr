@@ -4422,13 +4422,12 @@ namespace System.Globalization
         {
             int left = 0;
             int right = s_lcids.Length - 1;
-            int index;
 
             Debug.Assert(s_lcids.Length == s_lcidToCultureNameIndices.Length);
 
             while (left <= right)
             {
-                index = (right + left) / 2;
+                int index = (right + left) / 2;
 
                 if (culture == s_lcids[index])
                 {
@@ -4508,8 +4507,6 @@ namespace System.Globalization
         {
             int left = 0;
             int right = s_localeNamesIndices.Length - 2;
-            int index;
-            int result;
 
             Debug.Assert(s_localeNamesIndices[s_localeNamesIndices.Length - 1] == c_localeNames.Length);
 
@@ -4519,10 +4516,10 @@ namespace System.Globalization
             // just walk those elements.
             while ((right - left) > 3)
             {
-                index = ((right - left) / 2) + left;
+                int index = ((right - left) / 2) + left;
 
                 Debug.Assert(index < s_localeNamesIndices.Length - 1);
-                result = CompareOrdinal(name, c_localeNames, s_localeNamesIndices[index], s_localeNamesIndices[index + 1] - s_localeNamesIndices[index]);
+                int result = CompareOrdinal(name, c_localeNames, s_localeNamesIndices[index], s_localeNamesIndices[index + 1] - s_localeNamesIndices[index]);
                 if (result == 0)
                 {
                     return index;

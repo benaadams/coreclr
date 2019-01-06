@@ -434,7 +434,6 @@ namespace System.Text
             // For fallback we may need a fallback buffer.
             // We wait to initialize it though in case we don't have any broken input unicode
             EncoderFallbackBuffer fallbackBuffer = null;
-            char* pSrcForFallback;
 
             char* pSrc = chars;
             char* pEnd = pSrc + count;
@@ -600,7 +599,7 @@ namespace System.Text
 
                     // Do our fallback.  Actually we already know its a mixed up surrogate,
                     // so the ref pSrc isn't gonna do anything.
-                    pSrcForFallback = pSrc; // Avoid passing pSrc by reference to allow it to be en-registered
+                    char* pSrcForFallback = pSrc;
                     fallbackBuffer.InternalFallback(unchecked((char)ch), ref pSrcForFallback);
                     pSrc = pSrcForFallback;
 
@@ -851,7 +850,6 @@ namespace System.Text
             // For fallback we may need a fallback buffer.
             // We wait to initialize it though in case we don't have any broken input unicode
             EncoderFallbackBuffer fallbackBuffer = null;
-            char* pSrcForFallback;
 
             char* pSrc = chars;
             byte* pTarget = bytes;
@@ -1001,7 +999,7 @@ namespace System.Text
 
                     // Do our fallback.  Actually we already know its a mixed up surrogate,
                     // so the ref pSrc isn't gonna do anything.
-                    pSrcForFallback = pSrc; // Avoid passing pSrc by reference to allow it to be en-registered
+                    char* pSrcForFallback = pSrc;
                     fallbackBuffer.InternalFallback(unchecked((char)ch), ref pSrcForFallback);
                     pSrc = pSrcForFallback;
 

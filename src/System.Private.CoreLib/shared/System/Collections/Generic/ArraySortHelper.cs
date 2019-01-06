@@ -289,10 +289,9 @@ namespace System.Collections.Generic
             Debug.Assert(lo < keys.Length);
 
             T d = keys[lo + i - 1];
-            int child;
             while (i <= n / 2)
             {
-                child = 2 * i;
+                int child = 2 * i;
                 if (child < n && comparer(keys[lo + child - 1], keys[lo + child]) < 0)
                 {
                     child++;
@@ -312,12 +311,10 @@ namespace System.Collections.Generic
             Debug.Assert(hi >= lo);
             Debug.Assert(hi <= keys.Length);
 
-            int i, j;
-            T t;
-            for (i = lo; i < hi; i++)
+            for (int i = lo; i < hi; i++)
             {
-                j = i;
-                t = keys[i + 1];
+                int j = i;
+                T t = keys[i + 1];
                 while (j >= lo && comparer(t, keys[j]) < 0)
                 {
                     keys[j + 1] = keys[j];
@@ -579,10 +576,9 @@ namespace System.Collections.Generic
             Debug.Assert(lo < keys.Length);
 
             T d = keys[lo + i - 1];
-            int child;
             while (i <= n / 2)
             {
-                child = 2 * i;
+                int child = 2 * i;
                 if (child < n && (keys[lo + child - 1] == null || keys[lo + child - 1].CompareTo(keys[lo + child]) < 0))
                 {
                     child++;
@@ -602,12 +598,10 @@ namespace System.Collections.Generic
             Debug.Assert(hi >= lo);
             Debug.Assert(hi <= keys.Length);
 
-            int i, j;
-            T t;
-            for (i = lo; i < hi; i++)
+            for (int i = lo; i < hi; i++)
             {
-                j = i;
-                t = keys[i + 1];
+                int j = i;
+                T t = keys[i + 1];
                 while (j >= lo && (t == null || t.CompareTo(keys[j]) < 0))
                 {
                     keys[j + 1] = keys[j];
@@ -821,10 +815,9 @@ namespace System.Collections.Generic
 
             TKey d = keys[lo + i - 1];
             TValue dValue = values[lo + i - 1];
-            int child;
             while (i <= n / 2)
             {
-                child = 2 * i;
+                int child = 2 * i;
                 if (child < n && comparer.Compare(keys[lo + child - 1], keys[lo + child]) < 0)
                 {
                     child++;
@@ -848,14 +841,11 @@ namespace System.Collections.Generic
             Debug.Assert(hi >= lo);
             Debug.Assert(hi <= keys.Length);
 
-            int i, j;
-            TKey t;
-            TValue tValue;
-            for (i = lo; i < hi; i++)
+            for (int i = lo; i < hi; i++)
             {
-                j = i;
-                t = keys[i + 1];
-                tValue = values[i + 1];
+                int j = i;
+                TKey t = keys[i + 1];
+                TValue tValue = values[i + 1];
                 while (j >= lo && comparer.Compare(t, keys[j]) < 0)
                 {
                     keys[j + 1] = keys[j];
@@ -1065,10 +1055,9 @@ namespace System.Collections.Generic
 
             TKey d = keys[lo + i - 1];
             TValue dValue = values[lo + i - 1];
-            int child;
             while (i <= n / 2)
             {
-                child = 2 * i;
+                int child = 2 * i;
                 if (child < n && (keys[lo + child - 1] == null || keys[lo + child - 1].CompareTo(keys[lo + child]) < 0))
                 {
                     child++;
@@ -1091,14 +1080,11 @@ namespace System.Collections.Generic
             Debug.Assert(hi >= lo);
             Debug.Assert(hi <= keys.Length);
 
-            int i, j;
-            TKey t;
-            TValue tValue;
-            for (i = lo; i < hi; i++)
+            for (int i = lo; i < hi; i++)
             {
-                j = i;
-                t = keys[i + 1];
-                tValue = values[i + 1];
+                int j = i;
+                TKey t = keys[i + 1];
+                TValue tValue = values[i + 1];
                 while (j >= lo && (t == null || t.CompareTo(keys[j]) < 0))
                 {
                     keys[j + 1] = keys[j];

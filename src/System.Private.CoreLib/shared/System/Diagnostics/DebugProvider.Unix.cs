@@ -84,11 +84,11 @@ namespace System.Diagnostics
             unsafe
             {
                 byte* buf = stackalloc byte[BufferLength];
-                int bufCount;
                 int i = 0;
 
                 while (i < message.Length)
                 {
+                    int bufCount;
                     for (bufCount = 0; bufCount < BufferLength && i < message.Length; i++)
                     {
                         if (message[i] <= 0x7F)

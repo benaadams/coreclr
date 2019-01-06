@@ -2663,7 +2663,6 @@ namespace System.Globalization
             tokenType = TokenType.UnknownToken;
             tokenValue = 0;
 
-            TokenHashValue value;
             Debug.Assert(str.Index < str.Value.Length, "DateTimeFormatInfo.Tokenize(): start < value.Length");
 
             char ch = str.m_current;
@@ -2701,7 +2700,7 @@ namespace System.Globalization
             }
             do
             {
-                value = hashTable[hashcode];
+                TokenHashValue value = hashTable[hashcode];
                 if (value == null)
                 {
                     // Not found.
@@ -2799,7 +2798,7 @@ namespace System.Globalization
             {
                 return;
             }
-            TokenHashValue value;
+
             int i = 0;
             // If there is whitespace characters in the beginning and end of the string, trim them since whitespaces are skipped by
             // DateTime.Parse().
@@ -2815,7 +2814,7 @@ namespace System.Globalization
             int hashProbe = 1 + ch % SECOND_PRIME;
             do
             {
-                value = hashTable[hashcode];
+                TokenHashValue value = hashTable[hashcode];
                 if (value == null)
                 {
                     //// Console.WriteLine("   Put Key: {0} in {1}", str, hashcode);

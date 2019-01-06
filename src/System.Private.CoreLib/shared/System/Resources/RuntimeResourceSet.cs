@@ -286,13 +286,13 @@ namespace System.Resources
                 throw new ObjectDisposedException(null, SR.ObjectDisposed_ResourceSet);
 
             object value = null;
-            ResourceLocator resLocation;
 
             lock (Reader)
             {
                 if (Reader == null)
                     throw new ObjectDisposedException(null, SR.ObjectDisposed_ResourceSet);
 
+                ResourceLocator resLocation;
                 if (_defaultReader != null)
                 {
                     // Find the offset within the data section

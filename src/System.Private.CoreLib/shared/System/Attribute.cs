@@ -25,7 +25,6 @@ namespace System
 
             Type thisType = this.GetType();
             object thisObj = this;
-            object thisResult, thatResult;
 
             while (thisType != typeof(Attribute))
             {
@@ -33,8 +32,8 @@ namespace System
 
                 for (int i = 0; i < thisFields.Length; i++)
                 {
-                    thisResult = thisFields[i].GetValue(thisObj);
-                    thatResult = thisFields[i].GetValue(obj);
+                    object thisResult = thisFields[i].GetValue(thisObj);
+                    object thatResult = thisFields[i].GetValue(obj);
 
                     if (!AreFieldValuesEqual(thisResult, thatResult))
                     {

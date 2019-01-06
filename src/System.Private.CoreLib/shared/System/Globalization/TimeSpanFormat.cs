@@ -354,14 +354,13 @@ namespace System.Globalization
             int seconds = (int)(time / TimeSpan.TicksPerSecond % 60);
             int fraction = (int)(time % TimeSpan.TicksPerSecond);
 
-            long tmp = 0;
             int i = 0;
-            int tokenLen;
 
             while (i < format.Length)
             {
                 char ch = format[i];
-                int nextChar;
+                long tmp;
+                int tokenLen;
                 switch (ch)
                 {
                     case 'h':
@@ -453,7 +452,7 @@ namespace System.Globalization
                         // Optional format character.
                         // For example, format string "%d" will print day 
                         // Most of the cases, "%" can be ignored.
-                        nextChar = DateTimeFormat.ParseNextChar(format, i);
+                        int nextChar = DateTimeFormat.ParseNextChar(format, i);
                         // nextChar will be -1 if we already reach the end of the format string.
                         // Besides, we will not allow "%%" appear in the pattern.
                         if (nextChar >= 0 && nextChar != (int)'%')

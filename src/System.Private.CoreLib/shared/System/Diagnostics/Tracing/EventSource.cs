@@ -2985,7 +2985,6 @@ namespace System.Diagnostics.Tracing
             try
             {
                 MethodInfo[] methods = eventSourceType.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-                EventAttribute defaultEventAttribute;
                 int eventId = 1;        // The number given to an event that does not have a explicitly given ID. 
                 EventMetadata[] eventData = null;
                 Dictionary<string, string> eventsByName = null;
@@ -3103,7 +3102,7 @@ namespace System.Diagnostics.Tracing
                             if (GetCustomAttributeHelper(method, typeof(NonEventAttribute), flags) != null)
                                 continue;
 
-                            defaultEventAttribute = new EventAttribute(eventId);
+                            EventAttribute defaultEventAttribute = new EventAttribute(eventId);
                             eventAttribute = defaultEventAttribute;
                         }
                         else if (eventAttribute.EventId <= 0)
@@ -5892,7 +5891,6 @@ namespace System.Diagnostics.Tracing
         {
             StringBuilder stringBuilder = null;        // We lazily create this 
             int writtenSoFar = 0;
-            int chIdx = -1;
             for (int i = 0; ;)
             {
                 if (i >= eventMessage.Length)
@@ -5951,15 +5949,19 @@ namespace System.Diagnostics.Tracing
                         ManifestError(SR.Format(SR.EventSource_UnsupportedMessageProperty, evtName, eventMessage));
                     }
                 }
-                else if ((chIdx = "&<>'\"\r\n\t".IndexOf(eventMessage[i])) >= 0)
-                {
-                    UpdateStringBuilder(ref stringBuilder, eventMessage, writtenSoFar, i - writtenSoFar);
-                    i++;
-                    stringBuilder.Append(s_escapes[chIdx]);
-                    writtenSoFar = i;
-                }
                 else
-                    i++;
+                {
+                    int chIdx = "&<>'\"\r\n\t".IndexOf(eventMessage[i]);
+                    if (chIdx >= 0)
+                    {
+                        UpdateStringBuilder(ref stringBuilder, eventMessage, writtenSoFar, i - writtenSoFar);
+                        i++;
+                        stringBuilder.Append(s_escapes[chIdx]);
+                        writtenSoFar = i;
+                    }
+                    else
+                        i++;
+                }
             }
         }
 

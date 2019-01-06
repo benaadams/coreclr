@@ -37,7 +37,6 @@ namespace System
             }
 
             object thisObj = (object)this;
-            object thisResult, thatResult;
 
             // if there are no GC references in this object we can avoid reflection 
             // and do a fast memcmp
@@ -48,8 +47,8 @@ namespace System
 
             for (int i = 0; i < thisFields.Length; i++)
             {
-                thisResult = thisFields[i].GetValue(thisObj);
-                thatResult = thisFields[i].GetValue(obj);
+                object thisResult = thisFields[i].GetValue(thisObj);
+                object thatResult = thisFields[i].GetValue(obj);
 
                 if (thisResult == null)
                 {

@@ -2083,10 +2083,9 @@ namespace System
             {
                 object d = keys[lo + i - 1];
                 object dt = (items != null) ? items[lo + i - 1] : null;
-                int child;
                 while (i <= n / 2)
                 {
-                    child = 2 * i;
+                    int child = 2 * i;
                     if (child < n && comparer.Compare(keys[lo + child - 1], keys[lo + child]) < 0)
                     {
                         child++;
@@ -2105,13 +2104,11 @@ namespace System
 
             private void InsertionSort(int lo, int hi)
             {
-                int i, j;
-                object t, ti;
-                for (i = lo; i < hi; i++)
+                for (int i = lo; i < hi; i++)
                 {
-                    j = i;
-                    t = keys[i + 1];
-                    ti = (items != null) ? items[i + 1] : null;
+                    int j = i;
+                    object t = keys[i + 1];
+                    object ti = (items != null) ? items[i + 1] : null;
                     while (j >= lo && comparer.Compare(t, keys[j]) < 0)
                     {
                         keys[j + 1] = keys[j];
@@ -2289,10 +2286,9 @@ namespace System
             {
                 object d = keys.GetValue(lo + i - 1);
                 object dt = (items != null) ? items.GetValue(lo + i - 1) : null;
-                int child;
                 while (i <= n / 2)
                 {
-                    child = 2 * i;
+                    int child = 2 * i;
                     if (child < n && comparer.Compare(keys.GetValue(lo + child - 1), keys.GetValue(lo + child)) < 0)
                     {
                         child++;
@@ -2313,13 +2309,11 @@ namespace System
 
             private void InsertionSort(int lo, int hi)
             {
-                int i, j;
-                object t, dt;
-                for (i = lo; i < hi; i++)
+                for (int i = lo; i < hi; i++)
                 {
-                    j = i;
-                    t = keys.GetValue(i + 1);
-                    dt = (items != null) ? items.GetValue(i + 1) : null;
+                    int j = i;
+                    object t = keys.GetValue(i + 1);
+                    object dt = (items != null) ? items.GetValue(i + 1) : null;
 
                     while (j >= lo && comparer.Compare(t, keys.GetValue(j)) < 0)
                     {

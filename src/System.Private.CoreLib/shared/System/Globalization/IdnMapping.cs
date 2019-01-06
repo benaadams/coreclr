@@ -677,21 +677,13 @@ namespace System.Globalization
                     int bias = c_initialBias;
                     int i = 0;
 
-                    int w, k;
-
                     // no Supplementary characters yet
                     int numSurrogatePairs = 0;
 
                     // Main loop, read rest of ascii
                     while (asciiIndex < iNextDot)
                     {
-                        /* Decode a generalized variable-length integer into delta,  */
-                        /* which gets added to i.  The overflow checking is easier   */
-                        /* if we increase i as we go, then subtract off its starting */
-                        /* value at the end to obtain delta.                         */
-                        int oldi = i;
-
-                        for (w = 1, k = c_punycodeBase;  ;  k += c_punycodeBase)
+                        for (int w = 1, k = c_punycodeBase;  ;  k += c_punycodeBase)
                         {
                             // Check to make sure we aren't overrunning our ascii string
                             if (asciiIndex >= iNextDot)
@@ -714,6 +706,11 @@ namespace System.Globalization
                             w *= (c_punycodeBase - t);
                         }
 
+                        /* Decode a generalized variable-length integer into delta,  */
+                        /* which gets added to i.  The overflow checking is easier   */
+                        /* if we increase i as we go, then subtract off its starting */
+                        /* value at the end to obtain delta.                         */
+                        int oldi = i;
                         bias = Adapt(i - oldi, (output.Length - iOutputAfterLastDot - numSurrogatePairs) + 1, oldi == 0);
 
                         /* i was supposed to wrap around from output.Length to 0,   */

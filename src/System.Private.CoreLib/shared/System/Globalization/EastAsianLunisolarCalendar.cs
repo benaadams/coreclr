@@ -450,10 +450,9 @@ namespace System.Globalization
             }
             else
             {
-                int monthsInYear;
                 while (i <= 0)
                 {
-                    monthsInYear = InternalIsLeapYear(y - 1) ? 13 : 12;
+                    int monthsInYear = InternalIsLeapYear(y - 1) ? 13 : 12;
                     i += monthsInYear;
                     y--;
                 }

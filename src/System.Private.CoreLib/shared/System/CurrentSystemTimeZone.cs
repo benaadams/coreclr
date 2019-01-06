@@ -152,17 +152,13 @@ namespace System
 
             if (TimeZoneInfo.Local.SupportsDaylightSavingTime)
             {
-                DateTime start;
-                DateTime end;
-                TimeSpan delta;
-
                 foreach (var rule in TimeZoneInfo.Local.GetAdjustmentRules())
                 {
                     if (rule.DateStart.Year <= year && rule.DateEnd.Year >= year && rule.DaylightDelta != TimeSpan.Zero)
                     {
-                        start = TimeZoneInfo.TransitionTimeToDateTime(year, rule.DaylightTransitionStart);
-                        end = TimeZoneInfo.TransitionTimeToDateTime(year, rule.DaylightTransitionEnd);
-                        delta = rule.DaylightDelta;
+                        DateTime start = TimeZoneInfo.TransitionTimeToDateTime(year, rule.DaylightTransitionStart);
+                        DateTime end = TimeZoneInfo.TransitionTimeToDateTime(year, rule.DaylightTransitionEnd);
+                        TimeSpan delta = rule.DaylightDelta;
 
                         currentDaylightChanges = new DaylightTime(start, end, delta);
                         break;

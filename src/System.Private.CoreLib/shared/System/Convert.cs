@@ -2529,12 +2529,11 @@ namespace System
             int j = 0;
             int charcount = 0;
             //Convert three bytes at a time to base64 notation.  This will consume 4 chars.
-            int i;
 
             // get a pointer to the base64Table to avoid unnecessary range checking
             fixed (char* base64 = &base64Table[0])
             {
-                for (i = offset; i < calcLength; i += 3)
+                for (int i = offset; i < calcLength; i += 3)
                 {
                     if (insertLineBreaks)
                     {
@@ -2553,9 +2552,6 @@ namespace System
                     j += 4;
                 }
 
-                //Where we left off before
-                i = calcLength;
-
                 if (insertLineBreaks && (lengthmod3 != 0) && (charcount == base64LineBreakPosition))
                 {
                     outChars[j++] = '\r';
@@ -2565,15 +2561,15 @@ namespace System
                 switch (lengthmod3)
                 {
                     case 2: //One character padding needed
-                        outChars[j] = base64[(inData[i] & 0xfc) >> 2];
-                        outChars[j + 1] = base64[((inData[i] & 0x03) << 4) | ((inData[i + 1] & 0xf0) >> 4)];
-                        outChars[j + 2] = base64[(inData[i + 1] & 0x0f) << 2];
+                        outChars[j] = base64[(inData[calcLength] & 0xfc) >> 2];
+                        outChars[j + 1] = base64[((inData[calcLength] & 0x03) << 4) | ((inData[calcLength + 1] & 0xf0) >> 4)];
+                        outChars[j + 2] = base64[(inData[calcLength + 1] & 0x0f) << 2];
                         outChars[j + 3] = base64[64]; //Pad
                         j += 4;
                         break;
                     case 1: // Two character padding needed
-                        outChars[j] = base64[(inData[i] & 0xfc) >> 2];
-                        outChars[j + 1] = base64[(inData[i] & 0x03) << 4];
+                        outChars[j] = base64[(inData[calcLength] & 0xfc) >> 2];
+                        outChars[j + 1] = base64[(inData[calcLength] & 0x03) << 4];
                         outChars[j + 2] = base64[64]; //Pad
                         outChars[j + 3] = base64[64]; //Pad
                         j += 4;

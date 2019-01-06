@@ -1494,7 +1494,7 @@ namespace System
         /// <returns></returns>
         private void MakeSeparatorList(ReadOnlySpan<char> separators, ref ValueListBuilder<int> sepListBuilder)
         {
-            char sep0, sep1, sep2;
+            char sep0, sep1;
 
             switch (separators.Length)
             {
@@ -1535,7 +1535,7 @@ namespace System
                 case 3:
                     sep0 = separators[0];
                     sep1 = separators[1];
-                    sep2 = separators[2];
+                    char sep2 = separators[2];
                     for (int i = 0; i < Length; i++)
                     {
                         char c = this[i];

@@ -583,7 +583,7 @@ PosRem:
                     //
                     scale -= newScale;
                     uint sticky = 0;
-                    uint quotient, remainder = 0;
+                    uint remainder = 0;
 
                     for (;;)
                     {
@@ -591,6 +591,7 @@ PosRem:
 
                         uint power;
                         // Scaling loop specialized for each power of 10 because division by constant is an order of magnitude faster (especially for 64-bit division that's actually done by 128bit DIV on x64)
+                        uint quotient;
                         switch (newScale)
                         {
                             case 1:

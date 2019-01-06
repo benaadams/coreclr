@@ -42,8 +42,6 @@ namespace System.Reflection.Emit
             // Example: [?] - Array with unknown bound
 
             SymbolType symbolType;
-            int iLowerBound;
-            int iUpperBound;
 
             if (format == null || curIndex == format.Length)
             {
@@ -77,8 +75,8 @@ namespace System.Reflection.Emit
                 int startIndex = curIndex;
                 curIndex++;
 
-                iLowerBound = 0;
-                iUpperBound = -1;
+                int iLowerBound = 0;
+                int iUpperBound = -1;
 
                 // Example: [2..4]  - one dimension array with lower bound 2 and size of 3
                 // Example: [3, 5, 6] - three dimension array with lower bound 3, 5, 6

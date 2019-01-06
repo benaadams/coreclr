@@ -1105,7 +1105,6 @@ namespace System
 
             int index = 0;
             int num = value[0];
-            uint numValue;
 
             // Skip past any whitespace at the beginning.  
             if ((styles & NumberStyles.AllowLeadingWhite) != 0 && IsWhite(num))
@@ -1143,6 +1142,7 @@ namespace System
                 // Parse up through 8 digits, as no overflow is possible
                 answer = charToHexLookup[num]; // first digit
                 index++;
+                uint numValue;
                 for (int i = 0; i < 7; i++) // next 7 digits can't overflow
                 {
                     if ((uint)index >= (uint)value.Length)
@@ -1433,7 +1433,6 @@ namespace System
 
             int index = 0;
             int num = value[0];
-            uint numValue;
 
             // Skip past any whitespace at the beginning.  
             if ((styles & NumberStyles.AllowLeadingWhite) != 0 && IsWhite(num))
@@ -1476,6 +1475,7 @@ namespace System
                     if ((uint)index >= (uint)value.Length)
                         goto DoneAtEnd;
                     num = value[index];
+                    uint numValue;
                     if ((uint)num >= (uint)charToHexLookup.Length || (numValue = charToHexLookup[num]) == 0xFF)
                         goto HasTrailingChars;
                     index++;
@@ -1486,9 +1486,9 @@ namespace System
                 if ((uint)index >= (uint)value.Length)
                     goto DoneAtEnd;
                 num = value[index];
-                if ((uint)num >= (uint)charToHexLookup.Length || (numValue = charToHexLookup[num]) == 0xFF)
-                    goto HasTrailingChars;
 
+                if ((uint)num >= (uint)charToHexLookup.Length || charToHexLookup[num] == 0xFF)
+                    goto HasTrailingChars;
                 // At this point, we're either overflowing or hitting a formatting error.
                 // Format errors take precedence for compatibility. Read through any remaining digits.
                 do

@@ -52,8 +52,6 @@ namespace System.Text
         {
             int left = 0;
             int right = s_encodingNameIndices.Length - 2;
-            int index;
-            int result;
 
             Debug.Assert(s_encodingNameIndices.Length == s_codePagesByName.Length + 1);
             Debug.Assert(s_encodingNameIndices[s_encodingNameIndices.Length - 1] == s_encodingNames.Length);
@@ -64,10 +62,10 @@ namespace System.Text
             //just walk those elements.
             while ((right - left) > 3)
             {
-                index = ((right - left) / 2) + left;
+                int index = ((right - left) / 2) + left;
 
                 Debug.Assert(index < s_encodingNameIndices.Length - 1);
-                result = string.CompareOrdinal(invariantName, s_encodingNames.AsSpan(s_encodingNameIndices[index], s_encodingNameIndices[index + 1] - s_encodingNameIndices[index]));
+                int result = string.CompareOrdinal(invariantName, s_encodingNames.AsSpan(s_encodingNameIndices[index], s_encodingNameIndices[index + 1] - s_encodingNameIndices[index]));
 
                 if (result == 0)
                 {

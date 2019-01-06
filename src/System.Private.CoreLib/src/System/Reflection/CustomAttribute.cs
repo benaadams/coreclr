@@ -1880,11 +1880,9 @@ namespace System.Reflection
             if (!all && !s_pca.ContainsKey(caType))
                 return;
 
-            Attribute pca;
-
             if (all || caType == typeof(DllImportAttribute))
             {
-                pca = GetDllImportCustomAttribute(method);
+                Attribute pca = GetDllImportCustomAttribute(method);
                 if (pca != null) pcas.Add(pca);
             }
             if (all || caType == typeof(PreserveSigAttribute))
@@ -1925,8 +1923,6 @@ namespace System.Reflection
             if (!all && !s_pca.ContainsKey(caType))
                 return;
 
-            Attribute pca;
-
             if (all || caType == typeof(InAttribute))
             {
                 if (parameter.IsIn)
@@ -1944,7 +1940,7 @@ namespace System.Reflection
             }
             if (all || caType == typeof(MarshalAsAttribute))
             {
-                pca = GetMarshalAsCustomAttribute(parameter);
+                Attribute pca = GetMarshalAsCustomAttribute(parameter);
                 if (pca != null) pcas.Add(pca);
             }
         }

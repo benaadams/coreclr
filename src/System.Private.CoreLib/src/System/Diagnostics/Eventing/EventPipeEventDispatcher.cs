@@ -156,11 +156,10 @@ namespace System.Diagnostics.Tracing
 
         private unsafe void DispatchEventsToEventListeners()
         {
-            // Struct to fill with the call to GetNextEvent.
-            EventPipeEventInstanceData instanceData;
-
             while (!m_stopDispatchTask)
             {
+                // Struct to fill with the call to GetNextEvent.
+                EventPipeEventInstanceData instanceData;
                 // Get the next event.
                 while (!m_stopDispatchTask && EventPipeInternal.GetNextEvent(&instanceData))
                 {

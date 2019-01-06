@@ -148,9 +148,7 @@ namespace System.IO
                 throw Error.GetFileNotOpen();
             }
 
-            int charsRead = 0;
-            int numBytes = 0;
-            long posSav = posSav = 0;
+            long posSav = 0;
 
             if (_stream.CanSeek)
             {
@@ -166,13 +164,14 @@ namespace System.IO
                 _singleChar = new char[1];
             }
 
+            int charsRead = 0;
             while (charsRead == 0)
             {
                 // We really want to know what the minimum number of bytes per char
                 // is for our encoding.  Otherwise for UnicodeEncoding we'd have to
                 // do ~1+log(n) reads to read n characters.
                 // Assume 1 byte can be 1 char unless _2BytesPerChar is true.
-                numBytes = _2BytesPerChar ? 2 : 1;
+                int numBytes = _2BytesPerChar ? 2 : 1;
 
                 int r = _stream.ReadByte();
                 _charBytes[0] = (byte)r;
@@ -458,7 +457,6 @@ namespace System.IO
         {
             Debug.Assert(_stream != null);
 
-            int numBytes = 0;
             int index = 0;
             int charsRemaining = buffer.Length;
 
@@ -473,7 +471,7 @@ namespace System.IO
                 // We really want to know what the minimum number of bytes per char
                 // is for our encoding.  Otherwise for UnicodeEncoding we'd have to
                 // do ~1+log(n) reads to read n characters.
-                numBytes = charsRemaining;
+                int numBytes = charsRemaining;
 
                 if (_2BytesPerChar)
                 {

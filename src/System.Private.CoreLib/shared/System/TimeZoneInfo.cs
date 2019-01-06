@@ -1825,12 +1825,11 @@ namespace System
 
             TimeZoneInfoResult result = TimeZoneInfoResult.Success;
             e = null;
-            TimeZoneInfo match = null;
 
             // check the cache
             if (cachedData._systemTimeZones != null)
             {
-                if (cachedData._systemTimeZones.TryGetValue(id, out match))
+                if (cachedData._systemTimeZones.TryGetValue(id, out TimeZoneInfo match))
                 {
                     if (dstDisabled && match._supportsDaylightSavingTime)
                     {
@@ -1933,11 +1932,10 @@ namespace System
             if (adjustmentRules != null && adjustmentRules.Length != 0)
             {
                 adjustmentRulesSupportDst = true;
-                AdjustmentRule prev = null;
                 AdjustmentRule current = null;
                 for (int i = 0; i < adjustmentRules.Length; i++)
                 {
-                    prev = current;
+                    AdjustmentRule prev = current;
                     current = adjustmentRules[i];
 
                     if (current == null)

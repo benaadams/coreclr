@@ -174,9 +174,6 @@ namespace System.Runtime
             //re-convert into bytes
             requestedSizeRounded <<= 20;
 
-            ulong availPageFile = 0;  // available VM (physical + page file)
-            ulong totalAddressSpaceFree = 0;  // non-contiguous free address space
-
             // Check for available memory, with 2 attempts at getting more 
             // memory.  
             // Stage 0: If we don't have enough, trigger a GC.  
@@ -191,7 +188,7 @@ namespace System.Runtime
             // would probably work, but do some thinking first.)
             for (int stage = 0; stage < 3; stage++)
             {
-                CheckForAvailableMemory(out availPageFile, out totalAddressSpaceFree);
+                CheckForAvailableMemory(out ulong availPageFile, out ulong totalAddressSpaceFree);
 
                 // If we have enough room, then skip some stages.
                 // Note that multiple threads can still lead to a race condition for our free chunk

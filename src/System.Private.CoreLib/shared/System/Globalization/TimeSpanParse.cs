@@ -1250,7 +1250,6 @@ namespace System.Globalization
             int leadingZeroes = 0;    // number of leading zeroes in the parsed fraction
             int ff = 0;               // parsed fraction
             int i = 0;                // format string position
-            int tokenLen = 0;         // length of current format token, used to update index 'i'
 
             var tokenizer = new TimeSpanTokenizer(input, -1);
 
@@ -1258,6 +1257,7 @@ namespace System.Globalization
             {
                 char ch = format[i];
                 int nextFormatChar;
+                int tokenLen = 0;         // length of current format token, used to update index 'i'
                 switch (ch)
                 {
                     case 'h':

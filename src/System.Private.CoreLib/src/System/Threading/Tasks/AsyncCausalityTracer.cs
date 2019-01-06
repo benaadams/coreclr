@@ -135,11 +135,9 @@ namespace System.Threading.Tasks
             //COM Interface GUID  {50850B26-267E-451B-A890-AB6A370245EE}
             Guid guid = new Guid(0x50850B26, 0x267E, 0x451B, 0xA8, 0x90, 0XAB, 0x6A, 0x37, 0x02, 0x45, 0xEE);
 
-            object factory = null;
-
             try
             {
-                int hresult = Microsoft.Win32.UnsafeNativeMethods.RoGetActivationFactory(ClassId, ref guid, out factory);
+                int hresult = Microsoft.Win32.UnsafeNativeMethods.RoGetActivationFactory(ClassId, ref guid, out object factory);
 
                 if (hresult < 0 || factory == null) return; //This prevents having an exception thrown in case IAsyncCausalityTracerStatics isn't registered.
 

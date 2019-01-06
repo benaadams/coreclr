@@ -360,11 +360,11 @@ namespace System.Buffers
             {
                 // Try to pop from the associated stack first.  If that fails,
                 // round-robin through the other stacks.
-                T[] arr;
                 LockedStack[] stacks = _perCoreStacks;
                 int index = RuntimeThread.GetCurrentProcessorId() % stacks.Length;
                 for (int i = 0; i < stacks.Length; i++)
                 {
+                    T[] arr;
                     if ((arr = stacks[index].TryPop()) != null) return arr;
                     if (++index == stacks.Length) index = 0;
                 }

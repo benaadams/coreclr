@@ -524,7 +524,6 @@ namespace System.Threading
                 }
             }
 
-            bool retVal = true;
             int spinCount = 0;
 
             for (; ;)
@@ -597,7 +596,7 @@ namespace System.Threading
 
                     Debug.Assert(_numWriteUpgradeWaiters == 0, "There can be at most one thread with the upgrade lock held.");
 
-                    retVal = WaitOnEvent(_waitUpgradeEvent, ref _numWriteUpgradeWaiters, timeout, EnterLockType.UpgradeToWrite);
+                    bool retVal = WaitOnEvent(_waitUpgradeEvent, ref _numWriteUpgradeWaiters, timeout, EnterLockType.UpgradeToWrite);
 
                     //The lock is not held in case of failure.
                     if (!retVal)
@@ -612,7 +611,7 @@ namespace System.Threading
                         continue;   // since we left the lock, start over. 
                     }
 
-                    retVal = WaitOnEvent(_writeEvent, ref _numWriteWaiters, timeout, EnterLockType.Write);
+                    bool retVal = WaitOnEvent(_writeEvent, ref _numWriteWaiters, timeout, EnterLockType.Write);
                     //The lock is not held in case of failure.
                     if (!retVal)
                         return false;
@@ -718,7 +717,6 @@ namespace System.Threading
                 }
             }
 
-            bool retVal = true;
             int spinCount = 0;
 
             for (; ;)
@@ -756,7 +754,7 @@ namespace System.Threading
                 }
 
                 //Only one thread with the upgrade lock held can proceed.
-                retVal = WaitOnEvent(_upgradeEvent, ref _numUpgradeWaiters, timeout, EnterLockType.UpgradeableRead);
+                bool retVal = WaitOnEvent(_upgradeEvent, ref _numUpgradeWaiters, timeout, EnterLockType.UpgradeableRead);
                 if (!retVal)
                     return false;
             }
@@ -817,7 +815,6 @@ namespace System.Threading
 
         public void ExitWriteLock()
         {
-            ReaderWriterCount lrwc;
             if (!_fIsReentrant)
             {
                 if (Environment.CurrentManagedThreadId != _writeLockOwnerId)
@@ -830,7 +827,7 @@ namespace System.Threading
             else
             {
                 _spinLock.Enter(EnterSpinLockReason.ExitAnyWrite);
-                lrwc = GetThreadRWCount(false);
+                ReaderWriterCount lrwc = GetThreadRWCount(false);
 
                 if (lrwc == null)
                 {
@@ -864,7 +861,6 @@ namespace System.Threading
 
         public void ExitUpgradeableReadLock()
         {
-            ReaderWriterCount lrwc;
             if (!_fIsReentrant)
             {
                 if (Environment.CurrentManagedThreadId != _upgradeLockOwnerId)
@@ -877,7 +873,7 @@ namespace System.Threading
             else
             {
                 _spinLock.Enter(EnterSpinLockReason.ExitAnyRead);
-                lrwc = GetThreadRWCount(true);
+                ReaderWriterCount lrwc = GetThreadRWCount(true);
 
                 if (lrwc == null)
                 {

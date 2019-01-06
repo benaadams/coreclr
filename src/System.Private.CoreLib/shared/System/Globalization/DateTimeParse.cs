@@ -5338,7 +5338,6 @@ new DS[] { DS.ERROR, DS.TX_NNN,  DS.TX_NNN,  DS.TX_NNN,  DS.ERROR,   DS.ERROR,  
             {
                 // This is a digit.
                 tokenValue = m_current - '0';
-                int value;
                 int start = Index;
 
                 //
@@ -5347,7 +5346,7 @@ new DS[] { DS.ERROR, DS.TX_NNN,  DS.TX_NNN,  DS.TX_NNN,  DS.ERROR,   DS.ERROR,  
                 while (++Index < Length)
                 {
                     m_current = Value[Index];
-                    value = m_current - '0';
+                    int value = m_current - '0';
                     if (value >= 0 && value <= 9)
                     {
                         tokenValue = tokenValue * 10 + value;

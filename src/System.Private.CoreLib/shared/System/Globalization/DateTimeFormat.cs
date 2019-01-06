@@ -467,12 +467,12 @@ namespace System
             bool bTimeOnly = true;
 
             int i = 0;
-            int tokenLen, hour12;
 
             while (i < format.Length)
             {
                 char ch = format[i];
                 int nextChar;
+                int tokenLen;
                 switch (ch)
                 {
                     case 'g':
@@ -481,7 +481,7 @@ namespace System
                         break;
                     case 'h':
                         tokenLen = ParseRepeatPattern(format, i, ch);
-                        hour12 = dateTime.Hour % 12;
+                        int hour12 = dateTime.Hour % 12;
                         if (hour12 == 0)
                         {
                             hour12 = 12;
