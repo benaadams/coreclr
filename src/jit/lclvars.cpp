@@ -1972,76 +1972,81 @@ Compiler::lvaStructFieldInfo Compiler::StructPromotionHelper::GetFieldInfo(CORIN
 //
 bool Compiler::StructPromotionHelper::TryPromoteStructField(lvaStructFieldInfo& fieldInfo)
 {
-    // Size of TYP_BLK, TYP_FUNC, TYP_VOID and TYP_STRUCT is zero.
-    // Early out if field type is other than TYP_STRUCT.
-    // This is a defensive check as we don't expect a struct to have
-    // fields of TYP_BLK, TYP_FUNC or TYP_VOID.
-    if (fieldInfo.fldType != TYP_STRUCT)
+    do
     {
-        return false;
-    }
+        // Size of TYP_BLK, TYP_FUNC, TYP_VOID and TYP_STRUCT is zero.
+        // Early out if field type is other than TYP_STRUCT.
+        // This is a defensive check as we don't expect a struct to have
+        // fields of TYP_BLK, TYP_FUNC or TYP_VOID.
+        if (fieldInfo.fldType != TYP_STRUCT)
+        {
+            return false;
+        }
 
-    COMP_HANDLE compHandle = compiler->info.compCompHnd;
+        COMP_HANDLE compHandle = compiler->info.compCompHnd;
 
-    // Do not promote if the struct field in turn has more than one field.
-    if (compHandle->getClassNumInstanceFields(fieldInfo.fldTypeHnd) != 1)
-    {
-        return false;
-    }
+        // Do not promote if the struct field in turn has more than one field.
+        if (compHandle->getClassNumInstanceFields(fieldInfo.fldTypeHnd) != 1)
+        {
+            return false;
+        }
 
-    COMP_HANDLE compHandl = compiler->info.compCompHnd;
+        COMP_HANDLE compHandl = compiler->info.compCompHnd;
 
-    // Do not promote if the single field is not aligned at its natural boundary within
-    // the struct field.
-    CORINFO_FIELD_HANDLE innerFieldHndl   = compHandle->getFieldInClass(fieldInfo.fldTypeHnd, 0);
-    unsigned             innerFieldOffset = compHandle->getFieldOffset(innerFieldHndl);
-    if (innerFieldOffset != 0)
-    {
-        return false;
-    }
+        // Do not promote if the single field is not aligned at its natural boundary within
+        // the struct field.
+        CORINFO_FIELD_HANDLE innerFieldHndl   = compHandle->getFieldInClass(fieldInfo.fldTypeHnd, 0);
+        unsigned             innerFieldOffset = compHandle->getFieldOffset(innerFieldHndl);
+        if (innerFieldOffset != 0)
+        {
+            return false;
+        }
 
-    CorInfoType fieldCorType = compHandle->getFieldType(innerFieldHndl);
-    var_types   fieldVarType = JITtype2varType(fieldCorType);
-    unsigned    fieldSize    = genTypeSize(fieldVarType);
+        CORINFO_CLASS_HANDLE cHnd;
+        CorInfoType          fieldCorType = compHandle->getFieldType(innerFieldHndl, &cHnd);
+        var_types   fieldVarType = JITtype2varType(fieldCorType);
+        unsigned    fieldSize    = genTypeSize(fieldVarType);
 
-    // Do not promote if either not a primitive type or size equal to ptr size on
-    // target or a struct containing a single floating-point field.
-    //
-    // TODO-PERF: Structs containing a single floating-point field on Amd64
-    // need to be passed in integer registers. Right now LSRA doesn't support
-    // passing of floating-point LCL_VARS in integer registers.  Enabling promotion
-    // of such structs results in an assert in lsra right now.
-    //
-    // TODO-PERF: Right now promotion is confined to struct containing a ptr sized
-    // field (int/uint/ref/byref on 32-bits and long/ulong/ref/byref on 64-bits).
-    // Though this would serve the purpose of promoting Span<T> containing ByReference<T>,
-    // this can be extended to other primitive types as long as they are aligned at their
-    // natural boundary.
-    //
-    // TODO-CQ: Right now we only promote an actual SIMD typed field, which would cause
-    // a nested SIMD type to fail promotion.
-    if (fieldSize == 0 || fieldSize != TARGET_POINTER_SIZE || varTypeIsFloating(fieldVarType))
-    {
-        JITDUMP("Promotion blocked: struct contains struct field with one field,"
-                " but that field has invalid size or type");
-        return false;
-    }
+        // Do not promote if either not a primitive type or size equal to ptr size on
+        // target or a struct containing a single floating-point field.
+        //
+        // TODO-PERF: Structs containing a single floating-point field on Amd64
+        // need to be passed in integer registers. Right now LSRA doesn't support
+        // passing of floating-point LCL_VARS in integer registers.  Enabling promotion
+        // of such structs results in an assert in lsra right now.
+        //
+        // TODO-PERF: Right now promotion is confined to struct containing a ptr sized
+        // field (int/uint/ref/byref on 32-bits and long/ulong/ref/byref on 64-bits).
+        // Though this would serve the purpose of promoting Span<T> containing ByReference<T>,
+        // this can be extended to other primitive types as long as they are aligned at their
+        // natural boundary.
+        //
+        // TODO-CQ: Right now we only promote an actual SIMD typed field, which would cause
+        // a nested SIMD type to fail promotion.
+        if ((fieldSize > 0) && ((fieldSize != TARGET_POINTER_SIZE) || varTypeIsFloating(fieldVarType)))
+        {
+            JITDUMP("Promotion blocked: struct contains struct field with one field,"
+                    " but that field has invalid size or type");
+            return false;
+        }
 
-    // Insist this wrapped field occupy all of its parent storage.
-    unsigned innerStructSize = compHandle->getClassSize(fieldInfo.fldTypeHnd);
+        // Insist this wrapped field occupy all of its parent storage.
+        unsigned innerStructSize = compHandle->getClassSize(fieldInfo.fldTypeHnd);
 
-    if (fieldSize != innerStructSize)
-    {
-        JITDUMP("Promotion blocked: struct contains struct field with one field,"
-                " but that field is not the same size as its parent.");
-        return false;
-    }
+        if (fieldSize != innerStructSize)
+        {
+            JITDUMP("Promotion blocked: struct contains struct field with one field,"
+                    " but that field is not the same size as its parent.");
+            return false;
+        }
 
-    // Retype the field as the type of the single field of the struct.
-    // This is a hack that allows us to promote such fields before we support recursive struct promotion
-    // (tracked by #10019).
-    fieldInfo.fldType = fieldVarType;
-    fieldInfo.fldSize = fieldSize;
+        // Retype the field as the type of the single field of the struct.
+        // This is a hack that allows us to promote such fields before we support recursive struct promotion
+        // (tracked by #10019).
+        fieldInfo.fldType    = fieldVarType;
+        fieldInfo.fldSize    = fieldSize;
+        fieldInfo.fldTypeHnd = cHnd;
+    } while (fieldInfo.fldSize == 0);
 #ifdef DEBUG
     retypedFieldsMap.Set(fieldInfo.fldHnd, fieldInfo.fldType);
 #endif // DEBUG
