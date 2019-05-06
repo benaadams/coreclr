@@ -4,6 +4,7 @@
 
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace System.Runtime.CompilerServices
 {
@@ -21,20 +22,21 @@ namespace System.Runtime.CompilerServices
         // related to it, so we'd need to replicate all of those optimizations (e.g. storing
         // that box object directly into a Task's continuation field).
 
-        private AsyncTaskMethodBuilder _methodBuilder; // mutable struct; do not make it readonly
+        /// <summary>The lazily-initialized built task.</summary>
+        private Task<VoidTaskResult> m_task; // Debugger depends on the exact name of this field.
 
         /// <summary>Creates an instance of the <see cref="AsyncIteratorMethodBuilder"/> struct.</summary>
         /// <returns>The initialized instance.</returns>
-        public static AsyncIteratorMethodBuilder Create() =>
+        public static AsyncIteratorMethodBuilder Create()
+        {
 #if PROJECTN
-            // ProjectN's AsyncTaskMethodBuilder.Create() currently does additional debugger-related
-            // work, so we need to delegate to it.
-            new AsyncIteratorMethodBuilder() { _methodBuilder = AsyncTaskMethodBuilder.Create() };
+            var result = new AsyncIteratorMethodBuilder();
+            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
+            return result;
 #else
-            // _methodBuilder should be initialized to AsyncTaskMethodBuilder.Create(), but on coreclr
-            // that Create() is a nop, so we can just return the default here.
-            default; 
+            return default;
 #endif
+        }
 
         /// <summary>Invokes <see cref="IAsyncStateMachine.MoveNext"/> on the state machine while guarding the <see cref="ExecutionContext"/>.</summary>
         /// <typeparam name="TStateMachine">The type of the state machine.</typeparam>
@@ -50,8 +52,8 @@ namespace System.Runtime.CompilerServices
         /// <param name="stateMachine">The state machine.</param>
         public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
             where TAwaiter : INotifyCompletion
-            where TStateMachine : IAsyncStateMachine =>
-            _methodBuilder.AwaitOnCompleted(ref awaiter, ref stateMachine);
+            where TStateMachine : IAsyncStateMachine
+            => AsyncMethodBuilderCore.AwaitOnCompleted(ref awaiter, ref stateMachine, ref m_task);
 
         /// <summary>Schedules the state machine to proceed to the next action when the specified awaiter completes.</summary>
         /// <typeparam name="TAwaiter">The type of the awaiter.</typeparam>
@@ -60,13 +62,13 @@ namespace System.Runtime.CompilerServices
         /// <param name="stateMachine">The state machine.</param>
         public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
             where TAwaiter : ICriticalNotifyCompletion
-            where TStateMachine : IAsyncStateMachine =>
-            _methodBuilder.AwaitUnsafeOnCompleted(ref awaiter, ref stateMachine);
+            where TStateMachine : IAsyncStateMachine
+            => AsyncMethodBuilderCore.AwaitUnsafeOnCompleted(ref awaiter, ref stateMachine, ref m_task);
 
         /// <summary>Marks iteration as being completed, whether successfully or otherwise.</summary>
-        public void Complete() => _methodBuilder.SetResult();
+        public void Complete() => AsyncMethodBuilderCore.SetResult(ref m_task, Task.s_cachedCompleted);
 
         /// <summary>Gets an object that may be used to uniquely identify this builder to the debugger.</summary>
-        internal object ObjectIdForDebugger => _methodBuilder.ObjectIdForDebugger;
+        internal object ObjectIdForDebugger => AsyncMethodBuilderCore.ObjectIdForDebugger(ref m_task);
     }
 }
