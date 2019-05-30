@@ -13,7 +13,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
@@ -22,11 +21,21 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace System.Runtime.CompilerServices
 {
+#if PROJECTN
+    internal interface IMethodBuilder<TResult>
+    {
+        Task<TResult> Task { set; }
+    }
+#endif
+
     /// <summary>
     /// Provides a builder for asynchronous methods that return void.
     /// This type is intended for compiler use only.
     /// </summary>
     public struct AsyncVoidMethodBuilder
+#if PROJECTN
+        : IMethodBuilder<VoidTaskResult>
+#endif
     {
         /// <summary>The synchronization context associated with this operation.</summary>
         private SynchronizationContext? _synchronizationContext;
@@ -37,14 +46,20 @@ namespace System.Runtime.CompilerServices
         /// <returns>The initialized <see cref="AsyncVoidMethodBuilder"/>.</returns>
         public static AsyncVoidMethodBuilder Create()
         {
+#if PROJECTN
+            var result = AsyncMethodBuilderCore.Create<AsyncVoidMethodBuilder, VoidTaskResult>();
+#else
+            var result = new AsyncVoidMethodBuilder();
+#endif
             SynchronizationContext? sc = SynchronizationContext.Current;
             sc?.OperationStarted();
-            var result = new AsyncVoidMethodBuilder() { _synchronizationContext = sc };
-#if PROJECTN
-            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
-#endif
+            result._synchronizationContext = sc;
             return result;
         }
+
+#if PROJECTN
+        Task<VoidTaskResult> IMethodBuilder<VoidTaskResult>.Task { set => m_task = value; }
+#endif
 
         /// <summary>Initiates the builder's execution with the associated state machine.</summary>
         /// <typeparam name="TStateMachine">Specifies the type of the state machine.</typeparam>
@@ -190,6 +205,9 @@ namespace System.Runtime.CompilerServices
     /// or else the copies may end up building distinct Task instances.
     /// </remarks>
     public struct AsyncTaskMethodBuilder
+#if PROJECTN
+        : IMethodBuilder<VoidTaskResult>
+#endif
     {
         /// <summary>The lazily-initialized built task.</summary>
         private Task<VoidTaskResult> m_task; // Debugger depends on the exact name of this field.
@@ -197,16 +215,15 @@ namespace System.Runtime.CompilerServices
         /// <summary>Initializes a new <see cref="AsyncTaskMethodBuilder"/>.</summary>
         /// <returns>The initialized <see cref="AsyncTaskMethodBuilder"/>.</returns>
         public static AsyncTaskMethodBuilder Create()
-        {
 #if PROJECTN
-            var result = new AsyncTaskMethodBuilder();
-            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
-            return result;
+            => AsyncMethodBuilderCore.Create<AsyncTaskMethodBuilder, VoidTaskResult>();
 #else
-            return default;
+            => default;
 #endif
-        }
 
+#if PROJECTN
+        Task<VoidTaskResult> IMethodBuilder<VoidTaskResult>.Task { set => m_task = value; }
+#endif
         /// <summary>Initiates the builder's execution with the associated state machine.</summary>
         /// <typeparam name="TStateMachine">Specifies the type of the state machine.</typeparam>
         /// <param name="stateMachine">The state machine instance, passed by reference.</param>
@@ -307,6 +324,9 @@ namespace System.Runtime.CompilerServices
     /// or else the copies may end up building distinct Task instances.
     /// </remarks>
     public struct AsyncTaskMethodBuilder<TResult>
+#if PROJECTN
+        : IMethodBuilder<TResult>
+#endif
     {
 #if !PROJECTN
         /// <summary>A cached task for default(TResult).</summary>
@@ -319,18 +339,18 @@ namespace System.Runtime.CompilerServices
         /// <summary>Initializes a new <see cref="AsyncTaskMethodBuilder"/>.</summary>
         /// <returns>The initialized <see cref="AsyncTaskMethodBuilder"/>.</returns>
         public static AsyncTaskMethodBuilder<TResult> Create()
-        {
 #if PROJECTN
-            var result = new AsyncTaskMethodBuilder<TResult>();
-            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
-            return result;
+            => AsyncMethodBuilderCore.Create<AsyncTaskMethodBuilder<TResult>, TResult>();
 #else
             // NOTE: If this method is ever updated to perform more initialization,
             //       other Create methods like AsyncTaskMethodBuilder.Create and
             //       AsyncValueTaskMethodBuilder.Create must be updated also.
-            return default;
+            => default;
 #endif
-        }
+
+#if PROJECTN
+        Task<TResult> IMethodBuilder<TResult>.Task { set => m_task = value; }
+#endif
 
         /// <summary>Initiates the builder's execution with the associated state machine.</summary>
         /// <typeparam name="TStateMachine">Specifies the type of the state machine.</typeparam>
@@ -1163,14 +1183,20 @@ namespace System.Runtime.CompilerServices
         }
 
 #if PROJECTN
-        public static void InitalizeTaskIfDebugging<TResult>([AllowNull] ref Task<TResult> task)
+        public static TMethodBuilder Create<TMethodBuilder, TResult>()
+            where TMethodBuilder : struct, IMethodBuilder<TResult>
         {
+            TMethodBuilder builder = default;
             // This allows the debugger to access m_task directly without evaluating ObjectIdForDebugger for ProjectN
             if (Task.s_asyncDebuggingEnabled)
             {
+                Task<TResult>? task = null;
                 // This allows the debugger to access m_task directly without evaluating ObjectIdForDebugger for ProjectN
-                InitializeTaskAsStateMachineBox(ref task);
+                InitializeTaskAsStateMachineBox(ref task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
+                builder.Task = task;
             }
+
+            return builder;
         }
 #endif
 

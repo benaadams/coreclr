@@ -11,6 +11,9 @@ namespace System.Runtime.CompilerServices
     /// <summary>Represents a builder for asynchronous methods that return a <see cref="ValueTask"/>.</summary>
     [StructLayout(LayoutKind.Auto)]
     public struct AsyncValueTaskMethodBuilder
+#if PROJECTN
+        : IMethodBuilder<VoidTaskResult>
+#endif
     {
         /// <summary>The lazily-initialized built task.</summary>
         private Task<VoidTaskResult> m_task; // Debugger depends on the exact name of this field.
@@ -18,15 +21,15 @@ namespace System.Runtime.CompilerServices
         /// <summary>Creates an instance of the <see cref="AsyncValueTaskMethodBuilder"/> struct.</summary>
         /// <returns>The initialized instance.</returns>
         public static AsyncValueTaskMethodBuilder Create()
-        {
 #if PROJECTN
-            var result = new AsyncValueTaskMethodBuilder();
-            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!);  // TODO-NULLABLE: Remove ! when nullable attributes are respected
-            return result;
+            => AsyncMethodBuilderCore.Create<AsyncValueTaskMethodBuilder, VoidTaskResult>();
 #else
-            return default;
+            => default;
 #endif
-        }
+
+#if PROJECTN
+        Task<VoidTaskResult> IMethodBuilder<VoidTaskResult>.Task { set => m_task = value; }
+#endif
 
         /// <summary>Begins running the builder with the associated state machine.</summary>
         /// <typeparam name="TStateMachine">The type of the state machine.</typeparam>
@@ -103,6 +106,9 @@ namespace System.Runtime.CompilerServices
     /// <typeparam name="TResult">The type of the result.</typeparam>
     [StructLayout(LayoutKind.Auto)]
     public struct AsyncValueTaskMethodBuilder<TResult>
+#if PROJECTN
+        : IMethodBuilder<TResult>
+#endif
     {
         /// <summary>used if <see cref="_result"/> contains the synchronous result for the async method.</summary>
         private static readonly Task<TResult> s_haveResultSentinel = new Task<TResult>();
@@ -114,16 +120,15 @@ namespace System.Runtime.CompilerServices
         /// <summary>Creates an instance of the <see cref="AsyncValueTaskMethodBuilder{TResult}"/> struct.</summary>
         /// <returns>The initialized instance.</returns>
         public static AsyncValueTaskMethodBuilder<TResult> Create()
-        {
 #if PROJECTN
-            var result = new AsyncValueTaskMethodBuilder<TResult>();
-            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
-            return result;
+            => AsyncMethodBuilderCore.Create<AsyncValueTaskMethodBuilder<TResult>, TResult>();
 #else
-            return default;
+            => default;
 #endif
-        }
 
+#if PROJECTN
+        Task<TResult> IMethodBuilder<TResult>.Task { set => m_task = value; }
+#endif
         /// <summary>Begins running the builder with the associated state machine.</summary>
         /// <typeparam name="TStateMachine">The type of the state machine.</typeparam>
         /// <param name="stateMachine">The state machine instance, passed by reference.</param>

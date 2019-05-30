@@ -11,6 +11,9 @@ namespace System.Runtime.CompilerServices
     /// <summary>Represents a builder for asynchronous iterators.</summary>
     [StructLayout(LayoutKind.Auto)]
     public struct AsyncIteratorMethodBuilder
+#if PROJECTN
+        : IMethodBuilder<VoidTaskResult>
+#endif
     {
         // AsyncIteratorMethodBuilder is used by the language compiler as part of generating
         // async iterators. For now, the implementation just wraps AsyncTaskMethodBuilder, as
@@ -28,15 +31,15 @@ namespace System.Runtime.CompilerServices
         /// <summary>Creates an instance of the <see cref="AsyncIteratorMethodBuilder"/> struct.</summary>
         /// <returns>The initialized instance.</returns>
         public static AsyncIteratorMethodBuilder Create()
-        {
 #if PROJECTN
-            var result = new AsyncIteratorMethodBuilder();
-            AsyncMethodBuilderCore.InitalizeTaskIfDebugging(ref result.m_task!); // TODO-NULLABLE: Remove ! when nullable attributes are respected
-            return result;
+            => AsyncMethodBuilderCore.Create<AsyncIteratorMethodBuilder, VoidTaskResult>();
 #else
-            return default;
+            => default;
 #endif
-        }
+
+#if PROJECTN
+        Task<VoidTaskResult> IMethodBuilder<VoidTaskResult>.Task { set => m_task = value; }
+#endif
 
         /// <summary>Invokes <see cref="IAsyncStateMachine.MoveNext"/> on the state machine while guarding the <see cref="ExecutionContext"/>.</summary>
         /// <typeparam name="TStateMachine">The type of the state machine.</typeparam>
