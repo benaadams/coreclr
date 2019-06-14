@@ -20,7 +20,7 @@ namespace System
 #elif ARM
             private const nuint MemmoveNativeThreshold = 512;
 #else
-            private const nuint MemmoveNativeThreshold = 2048;
+            private const nuint MemmoveNativeThreshold = 4096;
 #endif
     }
 }

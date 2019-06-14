@@ -17,7 +17,7 @@ namespace System
         // https://github.com/dotnet/coreclr/issues/13843
         private const nuint MemmoveNativeThreshold = ulong.MaxValue;
 #else
-        private const nuint MemmoveNativeThreshold = 2048;
+        private const nuint MemmoveNativeThreshold = 4096;
 #endif
     }
 }
