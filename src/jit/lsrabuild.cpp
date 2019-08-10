@@ -1161,6 +1161,7 @@ bool LinearScan::buildKillPositionsForNode(GenTree* tree, LsraLocation currentLo
             {
                 unsigned   varNum = compiler->lvaTrackedToVarNum[varIndex];
                 LclVarDsc* varDsc = compiler->lvaTable + varNum;
+
 #if FEATURE_PARTIAL_SIMD_CALLEE_SAVE
                 if (varTypeNeedsPartialCalleeSave(varDsc->lvType))
                 {
@@ -2114,12 +2115,39 @@ void LinearScan::buildIntervals()
             // variables (which may actually be initialized along the dynamically executed paths, but not
             // on all static paths), we wind up with excessive liveranges for some of these variables.
             VARSET_TP newLiveIn(VarSetOps::MakeCopy(compiler, currentLiveVars));
-            if (predBlock)
+            bool      needsDummyDefs = false;
+            if (predBlock != nullptr)
             {
                 // Compute set difference: newLiveIn = currentLiveVars - predBlock->bbLiveOut
                 VarSetOps::DiffD(compiler, newLiveIn, predBlock->bbLiveOut);
+                needsDummyDefs = (!VarSetOps::IsEmpty(compiler, newLiveIn) && block != compiler->fgFirstBB);
             }
-            bool needsDummyDefs = (!VarSetOps::IsEmpty(compiler, newLiveIn) && block != compiler->fgFirstBB);
+#ifdef DEBUG
+            else if (block != compiler->fgFirstBB)
+            {
+                // This must be either an entry to an exception region, or the target of a
+                // BBF_KEEP_BBJ_ALWAYS block.
+                bool isExceptionEntry = (block->bbCatchTyp != BBCT_NONE);
+#if FEATURE_EH_FUNCLETS
+                isExceptionEntry = isExceptionEntry || ((block->bbFlags & BBF_FUNCLET_BEG) != 0);
+#endif // !FEATURE_EH_FUNCLETS
+                if (!isExceptionEntry)
+                {
+                    for (flowList* pred = block->bbPreds; pred != nullptr; pred = pred->flNext)
+                    {
+                        BasicBlock* candidatePredBlock = pred->flBlock;
+                        // If a predecessor is marked BBF_KEEP_BBJ_ALWAYS, then we must keep all live incoming
+                        // vars on the stack.
+                        if ((pred->flBlock->bbFlags & BBF_KEEP_BBJ_ALWAYS) != 0)
+                        {
+                            isExceptionEntry = true;
+                            break;
+                        }
+                    }
+                    assert(isExceptionEntry);
+                }
+            }
+#endif
 
             // Create dummy def RefPositions
 
@@ -2157,6 +2185,23 @@ void LinearScan::buildIntervals()
         RefPosition* pos = newRefPosition((Interval*)nullptr, currentLoc, RefTypeBB, nullptr, RBM_NONE);
         currentLoc += 2;
         JITDUMP("\n");
+
+        if (firstColdLoc == MaxLocation)
+        {
+            if (block->isRunRarely())
+            {
+                firstColdLoc = currentLoc;
+                JITDUMP("firstColdLoc = %d\n", firstColdLoc);
+            }
+        }
+        else
+        {
+            // TODO: We'd like to assert the following but we don't currently ensure that only
+            // "RunRarely" blocks are contiguous.
+            // (The funclets will generally be last, but we don't follow layout order, so we
+            // don't have to preserve that in the block sequence.)
+            // assert(block->isRunRarely());
+        }
 
         LIR::Range& blockRange = LIR::AsRange(block);
         for (GenTree* node : blockRange.NonPhiNodes())

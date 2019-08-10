@@ -238,15 +238,18 @@ void CodeGen::genCodeForBBlist()
                 {
                     newRegByrefSet |= varDsc->lvRegMask();
                 }
-#ifdef DEBUG
-                if (verbose && VarSetOps::IsMember(compiler, gcInfo.gcVarPtrSetCur, varIndex))
+                if (!varDsc->lvLiveInOutOfHndlr)
                 {
-                    VarSetOps::AddElemD(compiler, removedGCVars, varIndex);
-                }
+#ifdef DEBUG
+                    if (verbose && VarSetOps::IsMember(compiler, gcInfo.gcVarPtrSetCur, varIndex))
+                    {
+                        VarSetOps::AddElemD(compiler, removedGCVars, varIndex);
+                    }
 #endif // DEBUG
-                VarSetOps::RemoveElemD(compiler, gcInfo.gcVarPtrSetCur, varIndex);
+                    VarSetOps::RemoveElemD(compiler, gcInfo.gcVarPtrSetCur, varIndex);
+                }
             }
-            else if (compiler->lvaIsGCTracked(varDsc))
+            if ((!varDsc->lvIsInReg() || varDsc->lvLiveInOutOfHndlr) && compiler->lvaIsGCTracked(varDsc))
             {
 #ifdef DEBUG
                 if (verbose && !VarSetOps::IsMember(compiler, gcInfo.gcVarPtrSetCur, varIndex))
@@ -804,12 +807,27 @@ void CodeGen::genSpillVar(GenTree* tree)
         var_types lclTyp = genActualType(varDsc->TypeGet());
         emitAttr  size   = emitTypeSize(lclTyp);
 
-        instruction storeIns = ins_Store(lclTyp, compiler->isSIMDTypeLocalAligned(varNum));
-        assert(varDsc->lvRegNum == tree->gtRegNum);
-        inst_TT_RV(storeIns, tree, tree->gtRegNum, 0, size);
+        // If this is a write-thru variable, we don't actually spill at a use, but we will kill the var in the reg
+        // (below).
+        if (!varDsc->lvLiveInOutOfHndlr)
+        {
+            instruction storeIns = ins_Store(lclTyp, compiler->isSIMDTypeLocalAligned(varNum));
+            assert(varDsc->lvRegNum == tree->gtRegNum);
+            inst_TT_RV(storeIns, tree, tree->gtRegNum, 0, size);
+        }
 
-        genUpdateRegLife(varDsc, /*isBorn*/ false, /*isDying*/ true DEBUGARG(tree));
-        gcInfo.gcMarkRegSetNpt(varDsc->lvRegMask());
+        if ((tree->gtFlags & GTF_SPILLED) != 0)
+        {
+            // We should only hit this case for defs, so this shouldn't be hit!
+            assert(false);
+            // This is a write-thru case. We spill but don't kill the value in the register.
+            JITDUMP("\t\t\t\t\t\t\tVar V%02u write-thru\n", varNum);
+        }
+        else
+        {
+            genUpdateRegLife(varDsc, /*isBorn*/ false, /*isDying*/ true DEBUGARG(tree));
+            gcInfo.gcMarkRegSetNpt(varDsc->lvRegMask());
+        }
 
         if (VarSetOps::IsMember(compiler, gcInfo.gcTrkStkPtrLcls, varDsc->lvVarIndex))
         {
@@ -828,10 +846,14 @@ void CodeGen::genSpillVar(GenTree* tree)
     }
 
     tree->gtFlags &= ~GTF_SPILL;
-    varDsc->lvRegNum = REG_STK;
-    if (varTypeIsMultiReg(tree))
+    // If this is NOT a write-thru, reset the var location.
+    if ((tree->gtFlags & GTF_SPILLED) == 0)
     {
-        varDsc->lvOtherReg = REG_STK;
+        varDsc->lvRegNum = REG_STK;
+        if (varTypeIsMultiReg(tree))
+        {
+            varDsc->lvOtherReg = REG_STK;
+        }
     }
 
 #ifdef USING_VARIABLE_LIVE_RANGE
@@ -1010,13 +1032,16 @@ void CodeGen::genUnspillRegIfNeeded(GenTree* tree)
                 }
 #endif // USING_VARIABLE_LIVE_RANGE
 
-#ifdef DEBUG
-                if (VarSetOps::IsMember(compiler, gcInfo.gcVarPtrSetCur, varDsc->lvVarIndex))
+                if (!varDsc->lvLiveInOutOfHndlr)
                 {
-                    JITDUMP("\t\t\t\t\t\t\tRemoving V%02u from gcVarPtrSetCur\n", lcl->gtLclNum);
-                }
+#ifdef DEBUG
+                    if (VarSetOps::IsMember(compiler, gcInfo.gcVarPtrSetCur, varDsc->lvVarIndex))
+                    {
+                        JITDUMP("\t\t\t\t\t\t\tRemoving V%02u from gcVarPtrSetCur\n", lcl->gtLclNum);
+                    }
 #endif // DEBUG
-                VarSetOps::RemoveElemD(compiler, gcInfo.gcVarPtrSetCur, varDsc->lvVarIndex);
+                    VarSetOps::RemoveElemD(compiler, gcInfo.gcVarPtrSetCur, varDsc->lvVarIndex);
+                }
 
 #ifdef DEBUG
                 if (compiler->verbose)
@@ -1823,12 +1848,20 @@ void CodeGen::genProduceReg(GenTree* tree)
 
         if (genIsRegCandidateLocal(tree))
         {
-            // Store local variable to its home location.
-            // Ensure that lclVar stores are typed correctly.
-            unsigned varNum = tree->gtLclVarCommon.gtLclNum;
-            assert(!compiler->lvaTable[varNum].lvNormalizeOnStore() ||
-                   (tree->TypeGet() == genActualType(compiler->lvaTable[varNum].TypeGet())));
-            inst_TT_RV(ins_Store(tree->gtType, compiler->isSIMDTypeLocalAligned(varNum)), tree, tree->gtRegNum);
+            unsigned   varNum = tree->gtLclVarCommon.gtLclNum;
+            LclVarDsc* varDsc = compiler->lvaGetDesc(varNum);
+            assert(!varDsc->lvNormalizeOnStore() || (tree->TypeGet() == genActualType(varDsc->TypeGet())));
+
+            // First, check for the case of an EH var that is being "spilled" to the stack, indicated
+            // by a non-def GT_LCL_VAR that is marked GTF_SPILL.
+            // This case occurs at the end of a block when its register is going dead.
+            // It is already valid on the stack.
+            if (((tree->gtFlags & GTF_VAR_DEF) != 0) || !varDsc->lvLiveInOutOfHndlr)
+            {
+                // Store local variable to its home location.
+                // Ensure that lclVar stores are typed correctly.
+                inst_TT_RV(ins_Store(tree->gtType, compiler->isSIMDTypeLocalAligned(varNum)), tree, tree->gtRegNum);
+            }
         }
         else
         {
