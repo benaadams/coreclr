@@ -387,5 +387,21 @@ namespace Internal.Runtime.CompilerServices
         {
             throw new PlatformNotSupportedException();
         }
+
+        /// <summary>
+        /// Determines if a reference is null (the reference location rather than the address it points at).
+        /// </summary>
+        [NonVersionable]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe bool IsNullRef<T>(in T value)
+            => Unsafe.AsPointer(ref Unsafe.AsRef(in value!)) == null ? true : false;
+
+        /// <summary>
+        /// Returns a null reference (the reference location rather than the address it points at).
+        /// </summary>
+        [NonVersionable]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe ref T NullRef<T>()
+            => ref Unsafe.AsRef<T>(null);
     }
 }

@@ -6,6 +6,9 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using System.Runtime.InteropServices;
+
+using Internal.Runtime.CompilerServices;
 
 namespace System.Collections.Generic
 {
@@ -36,14 +39,15 @@ namespace System.Collections.Generic
     [TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
     public class Dictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>, ISerializable, IDeserializationCallback where TKey : notnull
     {
+        [StructLayout(LayoutKind.Auto)]
         private struct Entry
         {
+            public uint hashCode;
+            public TKey key;           // Key of entry
             // 0-based index of next entry in chain: -1 means end of chain
             // also encodes whether this entry _itself_ is part of the free list by changing sign and subtracting 3,
             // so -2 means end of free list, -3 means index 0 but on free list, -4 means index 1 but on free list, etc.
             public int next;
-            public uint hashCode;
-            public TKey key;           // Key of entry
             public TValue value;         // Value of entry
         }
 
@@ -168,8 +172,11 @@ namespace System.Collections.Generic
         {
             get
             {
-                int i = FindEntry(key);
-                if (i >= 0) return _entries![i].value;
+                ref TValue value = ref FindValueOrNull(key);
+                if (!Unsafe.IsNullRef(in value))
+                {
+                    return value;
+                }
                 ThrowHelper.ThrowKeyNotFoundException(key);
                 return default;
             }
@@ -191,8 +198,8 @@ namespace System.Collections.Generic
 
         bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> keyValuePair)
         {
-            int i = FindEntry(keyValuePair.Key);
-            if (i >= 0 && EqualityComparer<TValue>.Default.Equals(_entries![i].value, keyValuePair.Value))
+            ref TValue value = ref FindValueOrNull(keyValuePair.Key);
+            if (!Unsafe.IsNullRef(in value) && EqualityComparer<TValue>.Default.Equals(value, keyValuePair.Value))
             {
                 return true;
             }
@@ -201,8 +208,8 @@ namespace System.Collections.Generic
 
         bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> keyValuePair)
         {
-            int i = FindEntry(keyValuePair.Key);
-            if (i >= 0 && EqualityComparer<TValue>.Default.Equals(_entries![i].value, keyValuePair.Value))
+            ref TValue value = ref FindValueOrNull(keyValuePair.Key);
+            if (!Unsafe.IsNullRef(in value) && EqualityComparer<TValue>.Default.Equals(value, keyValuePair.Value))
             {
                 Remove(keyValuePair.Key);
                 return true;
@@ -228,7 +235,10 @@ namespace System.Collections.Generic
         }
 
         public bool ContainsKey(TKey key)
-            => FindEntry(key) >= 0;
+        {
+            ref TValue value = ref FindValueOrNull(key);
+            return !Unsafe.IsNullRef(in value);
+        }
 
         public bool ContainsValue(TValue value)
         {
@@ -318,17 +328,20 @@ namespace System.Collections.Generic
             }
         }
 
-        private int FindEntry(TKey key)
+        // As this is called by many methods, we use a ref return rather than an
+        // out variable for TValue as it may be a large struct so this keeps it
+        // to a IntPtr size, avoiding any additional struct copies.
+        private ref TValue FindValueOrNull(TKey key)
         {
             if (key == null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
             }
 
-            int i = -1;
             int[]? buckets = _buckets;
             Entry[]? entries = _entries;
             int collisionCount = 0;
+            ref TValue value = ref Unsafe.NullRef<TValue>();
             if (buckets != null)
             {
                 Debug.Assert(entries != null, "expected entries to be != null");
@@ -337,7 +350,7 @@ namespace System.Collections.Generic
                 {
                     uint hashCode = (uint)key.GetHashCode();
                     // Value in _buckets is 1-based
-                    i = buckets[hashCode % (uint)buckets.Length] - 1;
+                    int i = buckets[hashCode % (uint)buckets.Length] - 1;
                     if (default(TKey)! != null) // TODO-NULLABLE: default(T) == null warning (https://github.com/dotnet/roslyn/issues/34757)
                     {
                         // ValueType: Devirtualize with EqualityComparer<TValue>.Default intrinsic
@@ -347,6 +360,7 @@ namespace System.Collections.Generic
                             // Test in if to drop range check for following array access
                             if ((uint)i >= (uint)entries.Length || (entries[i].hashCode == hashCode && EqualityComparer<TKey>.Default.Equals(entries[i].key, key)))
                             {
+                                value = ref entries[i].value;
                                 break;
                             }
 
@@ -372,6 +386,7 @@ namespace System.Collections.Generic
                             // Test in if to drop range check for following array access
                             if ((uint)i >= (uint)entries.Length || (entries[i].hashCode == hashCode && defaultComparer.Equals(entries[i].key, key)))
                             {
+                                value = ref entries[i].value;
                                 break;
                             }
 
@@ -390,7 +405,7 @@ namespace System.Collections.Generic
                 {
                     uint hashCode = (uint)comparer.GetHashCode(key);
                     // Value in _buckets is 1-based
-                    i = buckets[hashCode % (uint)buckets.Length] - 1;
+                    int i = buckets[hashCode % (uint)buckets.Length] - 1;
                     while (true)
                     {
                         // Should be a while loop https://github.com/dotnet/coreclr/issues/15476
@@ -398,6 +413,7 @@ namespace System.Collections.Generic
                         if ((uint)i >= (uint)entries.Length ||
                             (entries[i].hashCode == hashCode && comparer.Equals(entries[i].key, key)))
                         {
+                            value = ref entries[i].value;
                             break;
                         }
 
@@ -413,7 +429,7 @@ namespace System.Collections.Generic
                 }
             }
 
-            return i;
+            return ref value;
         }
 
         private int Initialize(int capacity)
@@ -854,10 +870,10 @@ namespace System.Collections.Generic
 
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
-            int i = FindEntry(key);
-            if (i >= 0)
+            ref TValue entry = ref FindValueOrNull(key);
+            if (!Unsafe.IsNullRef(in entry))
             {
-                value = _entries![i].value;
+                value = entry;
                 return true;
             }
             value = default!;
@@ -1022,10 +1038,10 @@ namespace System.Collections.Generic
             {
                 if (IsCompatibleKey(key))
                 {
-                    int i = FindEntry((TKey)key);
-                    if (i >= 0)
+                    ref TValue value = ref FindValueOrNull((TKey)key);
+                    if (!Unsafe.IsNullRef(in value))
                     {
-                        return _entries![i].value;
+                        return value;
                     }
                 }
                 return null;
