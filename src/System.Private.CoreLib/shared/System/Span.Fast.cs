@@ -157,7 +157,7 @@ namespace System
         public unsafe ref T GetPinnableReference()
         {
             // Ensure that the native code has just one forward branch that is predicted-not-taken.
-            ref T ret = ref Unsafe.NullRef<T>();
+            ref T ret = ref Unsafe.AsRef<T>(null);
             if (_length != 0) ret = ref _pointer.Value;
             return ref ret;
         }

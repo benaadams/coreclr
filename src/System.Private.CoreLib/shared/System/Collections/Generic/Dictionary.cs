@@ -168,12 +168,12 @@ namespace System.Collections.Generic
 
         IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => _values ??= new ValueCollection(this);
 
-        public TValue this[TKey key]
+        public unsafe TValue this[TKey key]
         {
             get
             {
                 ref TValue value = ref FindValueOrNull(key);
-                if (!Unsafe.IsNullRef(in value))
+                if (Unsafe.AsPointer(ref Unsafe.AsRef(in value)) != null)
                 {
                     return value;
                 }
@@ -196,20 +196,20 @@ namespace System.Collections.Generic
         void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> keyValuePair)
             => Add(keyValuePair.Key, keyValuePair.Value);
 
-        bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> keyValuePair)
+        unsafe bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> keyValuePair)
         {
             ref TValue value = ref FindValueOrNull(keyValuePair.Key);
-            if (!Unsafe.IsNullRef(in value) && EqualityComparer<TValue>.Default.Equals(value, keyValuePair.Value))
+            if (Unsafe.AsPointer(ref Unsafe.AsRef(in value)) != null && EqualityComparer<TValue>.Default.Equals(value, keyValuePair.Value))
             {
                 return true;
             }
             return false;
         }
 
-        bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> keyValuePair)
+        unsafe bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> keyValuePair)
         {
             ref TValue value = ref FindValueOrNull(keyValuePair.Key);
-            if (!Unsafe.IsNullRef(in value) && EqualityComparer<TValue>.Default.Equals(value, keyValuePair.Value))
+            if (Unsafe.AsPointer(ref Unsafe.AsRef(in value)) != null && EqualityComparer<TValue>.Default.Equals(value, keyValuePair.Value))
             {
                 Remove(keyValuePair.Key);
                 return true;
@@ -234,10 +234,10 @@ namespace System.Collections.Generic
             }
         }
 
-        public bool ContainsKey(TKey key)
+        public unsafe bool ContainsKey(TKey key)
         {
             ref TValue value = ref FindValueOrNull(key);
-            return !Unsafe.IsNullRef(in value);
+            return Unsafe.AsPointer(ref Unsafe.AsRef(in value)) != null;
         }
 
         public bool ContainsValue(TValue value)
@@ -331,7 +331,7 @@ namespace System.Collections.Generic
         // As this is called by many methods, we use a ref return rather than an
         // out variable for TValue as it may be a large struct so this keeps it
         // to a IntPtr size, avoiding any additional struct copies.
-        private ref TValue FindValueOrNull(TKey key)
+        private unsafe ref TValue FindValueOrNull(TKey key)
         {
             if (key == null)
             {
@@ -341,7 +341,7 @@ namespace System.Collections.Generic
             int[]? buckets = _buckets;
             Entry[]? entries = _entries;
             int collisionCount = 0;
-            ref TValue value = ref Unsafe.NullRef<TValue>();
+            ref TValue value = ref Unsafe.AsRef<TValue>(null);
             if (buckets != null)
             {
                 Debug.Assert(entries != null, "expected entries to be != null");
@@ -879,10 +879,10 @@ namespace System.Collections.Generic
             return false;
         }
 
-        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+        public unsafe bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
             ref TValue entry = ref FindValueOrNull(key);
-            if (!Unsafe.IsNullRef(in entry))
+            if (Unsafe.AsPointer(ref Unsafe.AsRef(in entry)) != null)
             {
                 value = entry;
                 return true;
@@ -1043,14 +1043,14 @@ namespace System.Collections.Generic
 
         ICollection IDictionary.Values => (ICollection)Values;
 
-        object? IDictionary.this[object key]
+        unsafe object? IDictionary.this[object key]
         {
             get
             {
                 if (IsCompatibleKey(key))
                 {
                     ref TValue value = ref FindValueOrNull((TKey)key);
-                    if (!Unsafe.IsNullRef(in value))
+                    if (Unsafe.AsPointer(ref Unsafe.AsRef(in value)) != null)
                     {
                         return value;
                     }
