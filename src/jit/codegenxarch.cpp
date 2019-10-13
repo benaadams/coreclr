@@ -6245,14 +6245,57 @@ void CodeGen::genCompareInt(GenTree* treeNode)
     // TYP_UINT and TYP_ULONG should not appear here, only small types can be unsigned
     assert(!varTypeIsUnsigned(type) || varTypeIsSmall(type));
 
-    GetEmitter()->emitInsBinary(ins, emitTypeSize(type), op1, op2);
+    emitter*            emit      = GetEmitter();
+    emitter::instrDesc* prevInstr = emit->emitLastIns;
 
     // Are we evaluating this into a register?
-    if (targetReg != REG_NA)
+    bool canSkip = false;
+    // Check for skippable if we're optimizing and we're within an IG.
+    if (compiler->opts.OptimizationEnabled() && (emit->emitCurIGinsCnt > 0))
     {
-        inst_SETCC(GenCondition::FromIntegralRelop(tree), tree->TypeGet(), targetReg);
-        genProduceReg(tree);
+        if (ins == INS_test && prevInstr != nullptr && targetReg == REG_NA)
+        {
+            canSkip = isRedundantTest(prevInstr, tree, op1, op2);
+        }
     }
+
+    if (canSkip)
+    {
+        JITDUMP("\n-- skipping emission -- previous instr IN%04x makes this redundant\n",
+                prevInstr->idDebugOnlyInfo()->idNum);
+    }
+    else
+    {
+        emit->emitInsBinary(ins, emitTypeSize(type), op1, op2);
+
+        // Are we evaluating this into a register?
+        if (targetReg != REG_NA)
+        {
+            inst_SETCC(GenCondition::FromIntegralRelop(tree), tree->TypeGet(), targetReg);
+            genProduceReg(tree);
+        }
+    }
+}
+
+bool CodeGen::isRedundantTest(emitter::instrDesc* prevId, GenTreeOp* tree, GenTree* op1, GenTree* op2)
+{
+    if (op1 != op2)
+    {
+        return false;
+    }
+
+    instruction prevIns = prevId->idIns();
+    if ((prevIns == INS_dec || prevIns == INS_inc) && tree->OperIs(GT_EQ, GT_NE, GT_LT, GT_LE, GT_GE, GT_GT))
+    {
+        if (op1->GetRegNum() == prevId->idReg1())
+        {
+            // Flags are already set by inc/dec don't need to test and inc/dec can be macro fused with
+            // JE/JZ/JNE/JNZ and JL/JNGE/JGE/JNL/JLE/JNG/JG/JNLE so is worth skipping the test.
+            return true;
+        }
+    }
+
+    return false;
 }
 
 #if !defined(_TARGET_64BIT_)

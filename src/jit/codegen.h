@@ -1077,6 +1077,7 @@ protected:
 #ifdef _TARGET_XARCH_
     void genCodeForShiftRMW(GenTreeStoreInd* storeInd);
     void genCodeForBT(GenTreeOp* bt);
+    bool isRedundantTest(emitter::instrDesc* prevId, GenTreeOp* tree, GenTree* op1, GenTree* op2);
 #endif // _TARGET_XARCH_
 
     void genCodeForCast(GenTreeOp* tree);
