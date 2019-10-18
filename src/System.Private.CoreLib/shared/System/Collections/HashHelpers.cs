@@ -2,8 +2,17 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Internal.Runtime.CompilerServices;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics.X86;
 
+#pragma warning disable SA1121 // explicitly using type aliases instead of built-in types
+#if BIT64
+using nuint = System.UInt64;
+#else
+using nuint = System.UInt32;
+#endif
 namespace System.Collections
 {
     internal static partial class HashHelpers
@@ -28,12 +37,14 @@ namespace System.Collections
         // h1(key) + i*h2(key), 0 <= i < size.  h2 and the size must be relatively prime.
         // We prefer the low computation costs of higher prime numbers over the increased
         // memory allocation of a fixed prime number i.e. when right sizing a HashSet.
-        public static readonly int[] primes = {
+        private static readonly int[] s_primes =
+        {
             3, 7, 11, 17, 23, 29, 37, 47, 59, 71, 89, 107, 131, 163, 197, 239, 293, 353, 431, 521, 631, 761, 919,
             1103, 1327, 1597, 1931, 2333, 2801, 3371, 4049, 4861, 5839, 7013, 8419, 10103, 12143, 14591,
             17519, 21023, 25229, 30293, 36353, 43627, 52361, 62851, 75431, 90523, 108631, 130363, 156437,
             187751, 225307, 270371, 324449, 389357, 467237, 560689, 672827, 807403, 968897, 1162687, 1395263,
-            1674319, 2009191, 2411033, 2893249, 3471899, 4166287, 4999559, 5999471, 7199369 };
+            1674319, 2009191, 2411033, 2893249, 3471899, 4166287, 4999559, 5999471, 7199369
+        };
 
         public static bool IsPrime(int candidate)
         {
@@ -55,9 +66,9 @@ namespace System.Collections
             if (min < 0)
                 throw new ArgumentException(SR.Arg_HTCapacityOverflow);
 
-            for (int i = 0; i < primes.Length; i++)
+            for (int i = 0; i < s_primes.Length; i++)
             {
-                int prime = primes[i];
+                int prime = s_primes[i];
                 if (prime >= min)
                     return prime;
             }
@@ -85,6 +96,116 @@ namespace System.Collections
             }
 
             return GetPrime(newSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Array CreateBucketArray(int length)
+        {
+            // EntryIndexes are 1 based; so size needs to be 1 less than max value
+            if (length < byte.MaxValue)
+            {
+                return new byte[length];
+            }
+            else if (length < ushort.MaxValue)
+            {
+                return new ushort[length];
+            }
+
+            return new uint[length];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint GetBucketIndex(Array bucketArray, uint hashCode)
+        {
+            Debug.Assert(bucketArray is byte[] || bucketArray is ushort[] || bucketArray is uint[]);
+
+            return hashCode % (uint)bucketArray.Length;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint GetEntryIndex(Array bucketArray, uint hashCode, out uint bucketIndex)
+        {
+            Debug.Assert(bucketArray is byte[] || bucketArray is ushort[] || bucketArray is uint[]);
+
+            bucketIndex = GetBucketIndex(bucketArray, hashCode);
+            uint elementSize = bucketArray.GetElementSize();
+
+            Debug.Assert(elementSize == 1 || elementSize == 2 || elementSize == 4);
+
+            uint result = Unsafe.ReadUnaligned<uint>(
+                ref Unsafe.AddByteOffset(
+                    ref bucketArray.GetRawSzArrayData(),
+                    (IntPtr)(bucketIndex * elementSize)));
+
+            if (Bmi2.IsSupported)
+            {
+                return Bmi2.ZeroHighBits(result, elementSize << 3);
+            }
+            else
+            {
+                uint mask = (0xffff_ffff >> (int)((4 - elementSize) << 3));
+                return (result & mask);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetEntryIndex(Array bucketArray, uint bucketIndex, uint entryIndex)
+        {
+            Debug.Assert(bucketArray is byte[] || bucketArray is ushort[] || bucketArray is uint[]);
+
+            uint elementSize = bucketArray.GetElementSize();
+
+            Debug.Assert(
+                (elementSize == 1 && entryIndex <= byte.MaxValue) ||
+                (elementSize == 2 && entryIndex <= ushort.MaxValue) ||
+                (elementSize == 4 && entryIndex <= int.MaxValue));
+
+            ref uint uintRef = ref Unsafe.As<byte, uint>(
+                ref Unsafe.AddByteOffset(
+                    ref bucketArray.GetRawSzArrayData(),
+                    (IntPtr)(bucketIndex * elementSize)));
+
+            if (Bmi2.IsSupported)
+            {
+                uintRef = entryIndex | (uintRef & ~Bmi2.ZeroHighBits(0xffff_ffff, elementSize << 3));
+            }
+            else
+            {
+                uint mask = (0xffff_ffff >> (int)((4 - elementSize) << 3));
+                uintRef = entryIndex | (uintRef & ~mask);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint ExchangeEntryIndex(Array bucketArray, uint bucketIndex, uint newEntryIndex)
+        {
+            Debug.Assert(bucketArray is byte[] || bucketArray is ushort[] || bucketArray is uint[]);
+
+            uint elementSize = bucketArray.GetElementSize();
+
+            Debug.Assert(
+                (elementSize == 1 && newEntryIndex <= byte.MaxValue) ||
+                (elementSize == 2 && newEntryIndex <= ushort.MaxValue) ||
+                (elementSize == 4 && newEntryIndex <= int.MaxValue));
+
+            ref uint uintRef = ref Unsafe.As<byte, uint>(
+                ref Unsafe.AddByteOffset(
+                    ref bucketArray.GetRawSzArrayData(),
+                    (IntPtr)(bucketIndex * elementSize)));
+
+            if (Bmi2.IsSupported)
+            {
+                uint value = Bmi2.ZeroHighBits(uintRef, elementSize << 3);
+                uintRef = newEntryIndex | (uintRef ^ value);
+                return value;
+            }
+            else
+            {
+                uint mask = (0xffff_ffff >> (int)((4 - elementSize) << 3));
+                uint value = (uintRef & mask);
+                uintRef = newEntryIndex | (uintRef ^ value);
+                return value;
+            }
         }
     }
 }
